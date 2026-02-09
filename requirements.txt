@@ -1,0 +1,20 @@
+# Core dependencies
+torch
+numpy
+scipy
+networkx
+
+# Graph Learning libraries
+torch-geometric
+ogb  # For ogbn-arxiv dataset
+
+# DeepMind CLRS Benchmark
+dm-clrs @ git+https://github.com/deepmind/clrs.git
+
+# SALSA-CLRS (Sparse and Scalable Benchmark)
+salsa-clrs @ git+https://github.com/jkminder/SALSA-CLRS.git
+
+# Utilities
+matplotlib
+tqdm
+jupyter
