@@ -19,3 +19,4 @@ salsa-clrs @ git+https://github.com/jkminder/SALSA-CLRS.git
 matplotlib
 tqdm
 jupyter
+yacs
