@@ -1,16 +1,14 @@
-RUN_NAME: 'GIN'
-ALGORITHM: 'bfs'
+RUN_NAME: "GIN"
+ALGORITHM: "bfs"
 MODEL:
   DECODER_USE_LAST_HIDDEN: True
   PROCESSOR_USE_LAST_HIDDEN: True
   PROCESSOR:
     NAME: "GINConv"
-    KWARGS: [{"layers":2, "train_eps":True, "dropout":0.0, "use_bn": True, "aggr": "max"}]
+    KWARGS: [{ "layers": 2, "train_eps": True, "dropout": 0.0, "use_bn": True, "aggr": "max" }]
     LAYERNORM:
       ENABLE: True
       MODE: "node"
-  GRU:
-    ENABLE: True
 
 TRAIN:
   LOSS:
@@ -29,11 +27,7 @@ TRAIN:
   SCHEDULER:
     ENABLE: True
     NAME: "ReduceLROnPlateau"
-    PARAMS: [{"mode": "min", "factor": 0.1, "patience": 10, "verbose": True}]
+    PARAMS: [{ "mode": "min", "factor": 0.1, "patience": 10}]
 
 TEST:
   BATCH_SIZE: 8
-
-LOGGING:
-  WANDB:
-    GROUP: 'bfs'
