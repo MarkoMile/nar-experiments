@@ -17,6 +17,9 @@ env/
 data/*
 !data/README.md
 
+# === Lightning logs ===
+lightning_logs/*
+
 # Model checkpoints & weights
 *.ckpt
 *.pth
