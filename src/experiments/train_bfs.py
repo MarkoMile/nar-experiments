@@ -27,6 +27,8 @@ def train(model, datamodule, cfg, specs, seed=42, checkpoint_dir=None):
     if checkpoint_dir is not None:
         ckpt_cbk = pl.callbacks.ModelCheckpoint(dirpath=os.path.join(cfg.DATA.ROOT, "checkpoints", str(cfg.ALGORITHM), cfg.RUN_NAME), monitor="val/loss/0", mode="min", filename=f'seed{seed}-{{epoch}}-{{step}}', save_top_k=1)
         callbacks.append(ckpt_cbk)
+    else:
+        ckpt_cbk = None
 
     # early stopping
     early_stop_cbk = pl.callbacks.EarlyStopping(monitor="val/loss/0", patience=cfg.TRAIN.EARLY_STOPPING_PATIENCE, mode="min")
@@ -34,15 +36,15 @@ def train(model, datamodule, cfg, specs, seed=42, checkpoint_dir=None):
 
     # Setup trainer
     trainer = pl.Trainer(
-        enable_checkpointing=True,
-        callbacks=[ckpt_cbk, early_stop_cbk],
+        enable_checkpointing=checkpoint_dir is not None,
+        callbacks=callbacks,
         max_epochs=cfg.TRAIN.MAX_EPOCHS,
         logger=None,
         accelerator="auto",
         log_every_n_steps=5,
         gradient_clip_val=cfg.TRAIN.GRADIENT_CLIP_VAL,
         reload_dataloaders_every_n_epochs=datamodule.reload_every_n_epochs,
-        precision= cfg.TRAIN.PRECISION,
+        precision=cfg.TRAIN.PRECISION,
     )
 
     # Load checkpoint
