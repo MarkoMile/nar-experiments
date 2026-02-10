@@ -34,7 +34,8 @@ def train(model, datamodule, cfg, specs, seed=42, checkpoint_dir=None):
     early_stop_cbk = pl.callbacks.EarlyStopping(monitor="val/loss/0", patience=cfg.TRAIN.EARLY_STOPPING_PATIENCE, mode="min")
     callbacks.append(early_stop_cbk)
 
-    # Setup trainer
+    callbacks.append(pl.callbacks.RichProgressBar())
+
     trainer = pl.Trainer(
         enable_checkpointing=checkpoint_dir is not None,
         callbacks=callbacks,
@@ -45,6 +46,7 @@ def train(model, datamodule, cfg, specs, seed=42, checkpoint_dir=None):
         gradient_clip_val=cfg.TRAIN.GRADIENT_CLIP_VAL,
         reload_dataloaders_every_n_epochs=datamodule.reload_every_n_epochs,
         precision=cfg.TRAIN.PRECISION,
+        enable_progress_bar=True,
     )
 
     # Load checkpoint
