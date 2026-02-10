@@ -34,7 +34,9 @@ def train(model, datamodule, cfg, specs, seed=42, checkpoint_dir=None):
     early_stop_cbk = pl.callbacks.EarlyStopping(monitor="val/loss/0", patience=cfg.TRAIN.EARLY_STOPPING_PATIENCE, mode="min")
     callbacks.append(early_stop_cbk)
 
-    callbacks.append(pl.callbacks.RichProgressBar())
+    # callbacks.append(pl.callbacks.RichProgressBar()) # <--- REMOVED FOR BETTER LOGGING IN KAGGLE
+    from lightning.pytorch.callbacks import TQDMProgressBar
+    callbacks.append(TQDMProgressBar(refresh_rate=20))
 
     trainer = pl.Trainer(
         enable_checkpointing=checkpoint_dir is not None,
