@@ -1,5 +1,6 @@
 # Core dependencies
-torch
+torch==2.8.0
+torch-scatter -f https://data.pyg.org/whl/torch-2.8.0+cu128.html
 numpy
 scipy
 networkx
