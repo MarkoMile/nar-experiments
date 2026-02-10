@@ -8,8 +8,8 @@ from torch_geometric.nn import global_mean_pool, global_max_pool
 from inspect import signature
 from loguru import logger
 
-from ..utils import stack_hidden
-from ..utils import NaNException
+from src.utils.utils import stack_hidden
+from src.utils.utils import NaNException
 
 #################
 # PROCESSOR
@@ -284,7 +284,7 @@ class Decoder(nn.Module):
                 logger.debug(f'Ignoring input decoder for {k}')
                 continue
             if stage == 'hint':
-                k = k.replace('_h', '')
+                k = k.removesuffix('_h')
             
             input_dim = 1
             if type_ == 'categorical':
@@ -297,7 +297,7 @@ class Decoder(nn.Module):
         output = {}
         for key in getattr(batch, stage):
             if stage == 'hints':
-                dkey = key.replace('_h', '')
+                dkey = key.removesuffix('_h')
             else:
                 dkey = key
 

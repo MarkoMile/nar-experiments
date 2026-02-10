@@ -3,7 +3,7 @@ import os
 from salsaclrs import load_dataset
 from yacs.config import CfgNode
 
-from .config import get_cfg_defaults
+from src.utils.config import get_cfg_defaults
 
 # Monkeypatch torch.load to force weights_only=False globally.
 # This is necessary because salsaclrs uses older pickle method and we don't control the library code

@@ -12,9 +12,9 @@ from collections import defaultdict
 from loguru import logger
 from sklearn.metrics import f1_score, accuracy_score, precision_score, recall_score
 
-from .models import EncodeProcessDecode
-from .loss import CLRSLoss
-from ..utils import stack_dicts
+from src.models.models import EncodeProcessDecode
+from src.models.loss import CLRSLoss
+from src.utils.utils import stack_dicts
 
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import ReduceLROnPlateau

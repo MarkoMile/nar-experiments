@@ -2,7 +2,7 @@ import torch
 import torch.nn.functional as F
 import torch_scatter
 from loguru import logger
-from ..utils import NaNException
+from src.utils.utils import NaNException
 
 def calculate_loss(mask, truth, pred, edge_index, type_, batch_assignment):
     if type_ == "scalar":
