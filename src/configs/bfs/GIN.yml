@@ -19,7 +19,7 @@ TRAIN:
   BATCH_SIZE: 8
 
   ENABLE: True
-  NUM_WORKERS: 2
+  NUM_WORKERS: 0
   EARLY_STOPPING_PATIENCE: 30
   OPTIMIZER:
     LR: 0.0004239
@@ -27,7 +27,7 @@ TRAIN:
   SCHEDULER:
     ENABLE: True
     NAME: "ReduceLROnPlateau"
-    PARAMS: [{ "mode": "min", "factor": 0.1, "patience": 10}]
+    PARAMS: [{ "mode": "min", "factor": 0.1, "patience": 10 }]
 
 TEST:
   BATCH_SIZE: 8
