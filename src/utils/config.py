@@ -43,7 +43,7 @@ _C.TRAIN.OPTIMIZER.LR = 1e-3
 _C.TRAIN.SCHEDULER = CN()
 _C.TRAIN.SCHEDULER.NAME = "ReduceLROnPlateau"
 _C.TRAIN.SCHEDULER.ENABLE = False
-_C.TRAIN.SCHEDULER.PARAMS = [{"mode": "min", "factor": 0.1, "patience": 10, "verbose": True}]
+_C.TRAIN.SCHEDULER.PARAMS = [{"mode": "min", "factor": 0.1, "patience": 10}]
 
 _C.TRAIN.LOSS = CN()
 _C.TRAIN.LOSS.OUTPUT_LOSS_WEIGHT = 1.0
@@ -89,12 +89,6 @@ _C.DATA.TEST.GENERATOR_PARAMS = [{"p": [0.5, 0.6, 0.7, 0.8, 0.9], "n": 16}, {"p"
 # Logging
 
 _C.LOGGING = CN()
-
-_C.LOGGING.WANDB = CN()
-_C.LOGGING.WANDB.PROJECT = "salsa-clrs"
-_C.LOGGING.WANDB.ENTITY = ""
-_C.LOGGING.WANDB.GROUP = ""
-
 
 # -----------------------------------------------------------------------------
 
