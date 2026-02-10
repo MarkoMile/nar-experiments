@@ -13,8 +13,7 @@ from src.utils.config import get_cfg_defaults
 original_torch_load = torch.load
 
 def unsafe_torch_load(*args, **kwargs):
-    if 'weights_only' not in kwargs:
-            kwargs['weights_only'] = False
+    kwargs['weights_only'] = False
     return original_torch_load(*args, **kwargs)
 
 torch.load = unsafe_torch_load
