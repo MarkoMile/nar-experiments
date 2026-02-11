@@ -1,0 +1,41 @@
+RUN_NAME: "GIN-residual"
+ALGORITHM: "bfs"
+MODEL:
+  DECODER_USE_LAST_HIDDEN: True
+  PROCESSOR_USE_LAST_HIDDEN: True
+  MSG_PASSING_STEPS: 3
+  PROCESSOR:
+    NAME: "GINConv"
+    RESIDUAL: True
+    KWARGS: [{ "layers": 2, "train_eps": True, "dropout": 0.0, "use_bn": True, "aggr": "max" }]
+    LAYERNORM:
+      ENABLE: True
+      MODE: "node"
+
+TRAIN:
+  LOSS:
+    OUTPUT_LOSS_WEIGHT: 1.0
+    HINT_LOSS_WEIGHT: 0.0
+    HIDDEN_LOSS_WEIGHT: 0.0001
+  MAX_EPOCHS: 100
+  BATCH_SIZE: 32
+
+  ENABLE: True
+  NUM_WORKERS: 0
+  EARLY_STOPPING_PATIENCE: 30
+  OPTIMIZER:
+    LR: 0.0004239
+
+  SCHEDULER:
+    ENABLE: True
+    NAME: "ReduceLROnPlateau"
+    PARAMS: [{ "mode": "min", "factor": 0.1, "patience": 10 }]
+
+TEST:
+  BATCH_SIZE: 8
+
+LOGGING:
+  WANDB:
+    PROJECT: "nar-experiments"
+    ENTITY: "default"
+    GROUP: "GIN-residuals"
