@@ -24,7 +24,7 @@ logger.add(sys.stderr, level="INFO")
 
 def train(model, datamodule, cfg, specs, seed=42, checkpoint_dir=None, enable_wandb=False):
     if enable_wandb:
-        wandblogger = pl.loggers.WandbLogger(project=cfg.LOGGING.WANDB.PROJECT, entity=cfg.LOGGING.WANDB.ENTITY, group=cfg.LOGGING.WANDB.GROUP, name=cfg.RUN_NAME+"-"+str(seed))
+        wandblogger = pl.loggers.WandbLogger(project=cfg.LOGGING.WANDB.PROJECT, group=cfg.LOGGING.WANDB.GROUP, name=cfg.RUN_NAME+"-"+str(seed))
     else:
         wandblogger = None
 

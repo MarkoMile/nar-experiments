@@ -21,3 +21,4 @@ tqdm
 jupyter
 yacs
 rich
+wandb
