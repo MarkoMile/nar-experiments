@@ -36,5 +36,4 @@ TEST:
 LOGGING:
   WANDB:
     PROJECT: "nar-experiments"
-    ENTITY: "default"
     GROUP: "GIN-residuals"
