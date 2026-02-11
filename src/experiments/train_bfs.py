@@ -7,6 +7,7 @@ import torch
 from loguru import logger
 import lightning.pytorch as pl
 import argparse
+import wandb # Added import
 
 # Add project root to sys.path so absolute imports work when running directly
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -21,7 +22,12 @@ from salsaclrs import SALSACLRSDataModule
 logger.remove()
 logger.add(sys.stderr, level="INFO")
 
-def train(model, datamodule, cfg, specs, seed=42, checkpoint_dir=None):
+def train(model, datamodule, cfg, specs, seed=42, checkpoint_dir=None, enable_wandb=False):
+    if enable_wandb:
+        wandblogger = pl.loggers.WandbLogger(project=cfg.LOGGING.WANDB.PROJECT, entity=cfg.LOGGING.WANDB.ENTITY, group=cfg.LOGGING.WANDB.GROUP, name=cfg.RUN_NAME+"-"+str(seed))
+    else:
+        wandblogger = None
+
     callbacks = []
     # checkpointing
     if checkpoint_dir is not None:
@@ -42,7 +48,7 @@ def train(model, datamodule, cfg, specs, seed=42, checkpoint_dir=None):
         enable_checkpointing=checkpoint_dir is not None,
         callbacks=callbacks,
         max_epochs=cfg.TRAIN.MAX_EPOCHS,
-        logger=None,
+        logger=wandblogger,
         accelerator="auto",
         log_every_n_steps=5,
         gradient_clip_val=cfg.TRAIN.GRADIENT_CLIP_VAL,
@@ -99,6 +105,7 @@ if __name__ == '__main__':
     parser.add_argument("--cfg", type=str, required=True, help="Path to config file")
     parser.add_argument("--seed", type=int, default=42, help="Random seed")
     parser.add_argument("--hints", action="store_true", help="Use hints.")
+    parser.add_argument("--enable-wandb", action="store_true", help="Enable wandb logging")
     args = parser.parse_args()
 
     # set seed
@@ -141,4 +148,4 @@ if __name__ == '__main__':
     model = SALSACLRSModel(specs=train_ds.specs, cfg=cfg)
 
     ckpt_dir = os.path.join(DATA_DIR, "checkpoints")
-    train(model, datamodule, cfg, train_ds.specs, seed = args.seed, checkpoint_dir=ckpt_dir)
+    train(model, datamodule, cfg, train_ds.specs, seed = args.seed, checkpoint_dir=ckpt_dir, enable_wandb=args.enable_wandb)

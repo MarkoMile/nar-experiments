@@ -32,3 +32,9 @@ TRAIN:
 
 TEST:
   BATCH_SIZE: 8
+
+LOGGING:
+  WANDB:
+    PROJECT: "nar-experiments"
+    ENTITY: "default"
+    GROUP: "GIN"

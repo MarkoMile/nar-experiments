@@ -89,6 +89,10 @@ _C.DATA.TEST.GENERATOR_PARAMS = [{"p": [0.5, 0.6, 0.7, 0.8, 0.9], "n": 16}, {"p"
 # Logging
 
 _C.LOGGING = CN()
+_C.LOGGING.WANDB = CN()
+_C.LOGGING.WANDB.PROJECT = "nar-experiments"
+_C.LOGGING.WANDB.ENTITY = "default"
+_C.LOGGING.WANDB.GROUP = "default"
 
 # -----------------------------------------------------------------------------
 
