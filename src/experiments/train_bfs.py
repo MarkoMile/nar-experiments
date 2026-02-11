@@ -25,14 +25,14 @@ def train(model, datamodule, cfg, specs, seed=42, checkpoint_dir=None):
     callbacks = []
     # checkpointing
     if checkpoint_dir is not None:
-        ckpt_cbk = pl.callbacks.ModelCheckpoint(dirpath=os.path.join(cfg.DATA.ROOT, "checkpoints", str(cfg.ALGORITHM), cfg.RUN_NAME), monitor="val/outloss/0", mode="min", filename=f'seed{seed}-{{epoch}}-{{step}}', save_top_k=1)
+        ckpt_cbk = pl.callbacks.ModelCheckpoint(dirpath=os.path.join(cfg.DATA.ROOT, "checkpoints", str(cfg.ALGORITHM), cfg.RUN_NAME), monitor="val/outloss/0", mode="min", filename=f'seed{seed}-{{epoch}}-{{step}}', save_top_k=1, save_last=True)
         callbacks.append(ckpt_cbk)
     else:
         ckpt_cbk = None
 
     # early stopping
-    early_stop_cbk = pl.callbacks.EarlyStopping(monitor="val/outloss/0", patience=cfg.TRAIN.EARLY_STOPPING_PATIENCE, mode="min")
-    callbacks.append(early_stop_cbk)
+    # early_stop_cbk = pl.callbacks.EarlyStopping(monitor="val/outloss/0", patience=cfg.TRAIN.EARLY_STOPPING_PATIENCE, mode="min")
+    # callbacks.append(early_stop_cbk)
 
     # callbacks.append(pl.callbacks.RichProgressBar()) # <--- REMOVED FOR BETTER LOGGING IN KAGGLE
     from lightning.pytorch.callbacks import TQDMProgressBar
