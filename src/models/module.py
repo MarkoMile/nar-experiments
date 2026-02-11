@@ -143,7 +143,7 @@ class SALSACLRSModel(pl.LightningModule):
         output.update({f"{m}_metric": metrics[m] for m in metrics})
         output["batch_size"] = torch.tensor(batch.num_graphs).float()
         output["num_nodes"] = torch.tensor(batch.num_nodes).float()
-        return loss, output
+        return loss, outloss, output
 
     def _end_of_epoch_metrics(self, dataloader_idx):
         output = stack_dicts(self.step_output_cache[dataloader_idx])
@@ -161,15 +161,17 @@ class SALSACLRSModel(pl.LightningModule):
         return metrics
     
     def validation_step(self, batch, batch_idx, dataloader_idx=0):
-        loss, output = self._shared_eval(batch, dataloader_idx, "val")
+        loss, outloss, output = self._shared_eval(batch, dataloader_idx, "val")
         self.log(f'val/loss/{self.trainer.datamodule.get_val_loader_nickname(dataloader_idx)}', loss, batch_size=batch.num_graphs, add_dataloader_idx=False)
+        self.log(f'val/outloss/{self.trainer.datamodule.get_val_loader_nickname(dataloader_idx)}', outloss, batch_size=batch.num_graphs, add_dataloader_idx=False)
 
         self.step_output_cache[dataloader_idx].append(output)
         return loss
     
     def test_step(self, batch, batch_idx, dataloader_idx=0):
-        loss, output = self._shared_eval(batch, dataloader_idx, "test")
+        loss, outloss, output = self._shared_eval(batch, dataloader_idx, "test")
         self.log(f'test/loss/{self.trainer.datamodule.get_test_loader_nickname(dataloader_idx)}', loss, batch_size=batch.num_graphs, add_dataloader_idx=False)
+        self.log(f'test/outloss/{self.trainer.datamodule.get_test_loader_nickname(dataloader_idx)}', outloss, batch_size=batch.num_graphs, add_dataloader_idx=False)
 
         self.step_output_cache[dataloader_idx].append(output)
         return loss
@@ -195,13 +197,16 @@ class SALSACLRSModel(pl.LightningModule):
             optimizer = torch.optim.AdamW(self.parameters(), lr=self.cfg.TRAIN.OPTIMIZER.LR)
         else:
             raise NotImplementedError(f"Optimizer {self.cfg.TRAIN.OPTIMIZER.NAME} not implemented")
-        out = {"optimizer": optimizer, "monitor": "val/loss/0", "interval": "step", "frequency": 1}
+        out = {"optimizer": optimizer}
         if self.cfg.TRAIN.SCHEDULER.ENABLE:
             try:
                 scheduler = getattr(torch.optim.lr_scheduler, self.cfg.TRAIN.SCHEDULER.NAME)(optimizer, **self.cfg.TRAIN.SCHEDULER.PARAMS[0])
-                out["lr_scheduler"] = scheduler
-                out['monitor'] = 'val/loss/0'
-                
+                out["lr_scheduler"] = {
+                    "scheduler": scheduler,
+                    "monitor": "val/outloss/0",
+                    "interval": "epoch",
+                    "frequency": 1,
+                }
             except AttributeError:
                 raise NotImplementedError(f"Scheduler {self.cfg.TRAIN.SCHEDULER.NAME} not implemented")
 
