@@ -5,6 +5,7 @@ MODEL:
   PROCESSOR_USE_LAST_HIDDEN: True
   PROCESSOR:
     NAME: "GINConv"
+    # consider adding dropout
     KWARGS: [{ "layers": 2, "train_eps": True, "dropout": 0.0, "use_bn": True, "aggr": "max" }]
     LAYERNORM:
       ENABLE: True
