@@ -11,11 +11,19 @@ MODEL:
       ENABLE: True
       MODE: "node"
 
+DATA:
+  TRAIN:
+    NUM_SAMPLES: 10000
+    GRAPH_GENERATOR: ["er"]
+    # defaults from salsaclrs.data.py
+    # n=[4, 7, 11, 13, 16], p_range=er_probabilities(16) approx [0.17, 0.52]
+    GENERATOR_PARAMS: [{ "n": [4, 7, 11, 13, 16], "p_range": [0.17, 0.52] }]
+
 TRAIN:
   LOSS:
     OUTPUT_LOSS_WEIGHT: 1.0
     HINT_LOSS_WEIGHT: 0.0
-    HIDDEN_LOSS_WEIGHT: 0.0001
+    HIDDEN_LOSS_WEIGHT: 0.0
   MAX_EPOCHS: 100
   BATCH_SIZE: 32
 

@@ -1,6 +1,7 @@
 import torch
 import os
-from salsaclrs import load_dataset
+from loguru import logger
+from salsaclrs import load_dataset, SALSACLRSDataset
 from yacs.config import CfgNode
 
 from src.utils.config import get_cfg_defaults
@@ -53,6 +54,28 @@ def get_dataset(split: str, cfg: CfgNode = None):
     print(f"Loading {algorithm} dataset for split: {split}...")
 
     try:
+        # Check if config has custom generator params for this split
+        # We assume generator_params is a list of dicts, we take the first one for now
+        # unless we want to support multiple datasets (DynamicDataset) which is more complex
+        
+        split_upper = split.upper()
+        if hasattr(cfg.DATA, split_upper) and hasattr(getattr(cfg.DATA, split_upper), "GENERATOR_PARAMS"):
+             params = getattr(cfg.DATA, split_upper).GENERATOR_PARAMS
+             if isinstance(params, list) and len(params) > 0 and split == "train":
+                # Only using custom generation for train split for now to fix generalization
+                # Test/Val are usually fixed benchmarks
+                logger.info(f"Using custom generator params from config for {split}: {params[0]}")
+                
+                return SALSACLRSDataset(
+                    root=root,
+                    split=split,
+                    algorithm=algorithm,
+                    num_samples=getattr(cfg.DATA, split_upper).NUM_SAMPLES,
+                    graph_generator=getattr(cfg.DATA, split_upper).GRAPH_GENERATOR[0], # Assume list of strings
+                    graph_generator_kwargs=params[0],
+                    verify_duplicates=False
+                )
+
         dataset = load_dataset(algorithm=algorithm, split=split, local_dir=root)
     except Exception as e:
         print(f"Error loading dataset: {e}")
