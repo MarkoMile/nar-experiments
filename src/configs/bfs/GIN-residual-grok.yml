@@ -6,7 +6,7 @@ MODEL:
   PROCESSOR:
     NAME: "GINConv"
     RESIDUAL: True
-    KWARGS: [{ "layers": 2, "train_eps": True, "dropout": 0.1, "use_bn": True, "aggr": "max" }]
+    KWARGS: [{ "layers": 2, "train_eps": True, "dropout": 0.0, "use_bn": True, "aggr": "max" }]
     LAYERNORM:
       ENABLE: True
       MODE: "node"
@@ -23,7 +23,7 @@ TRAIN:
   LOSS:
     OUTPUT_LOSS_WEIGHT: 1.0
     HINT_LOSS_WEIGHT: 0.0
-    HIDDEN_LOSS_WEIGHT: 0.0001
+    HIDDEN_LOSS_WEIGHT: 0.0
   MAX_EPOCHS: 200 # Increased for grokking
   BATCH_SIZE: 32
 
@@ -44,4 +44,4 @@ TEST:
 LOGGING:
   WANDB:
     PROJECT: "nar-experiments"
-    GROUP: "GIN-residuals-regularized"
+    GROUP: "GIN-residuals-grok"
