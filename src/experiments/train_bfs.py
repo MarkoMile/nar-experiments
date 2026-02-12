@@ -130,12 +130,13 @@ if __name__ == '__main__':
     train_ds = get_dataset("train",cfg)
     val_ds = get_dataset("val",cfg)
     test_datasets = get_dataset("test",cfg)
-    test_ds_small = test_datasets['er_80']
+    test_ds_small = test_datasets['er_16']
+    test_ds_medium = test_datasets['er_80']
     test_ds_large = test_datasets['er_800']
     specs = train_ds.specs
     
     # load model
-    datamodule = SALSACLRSDataModule(train_dataset=train_ds,val_datasets=[val_ds], test_datasets=[test_ds_small,test_ds_large], batch_size=cfg.TRAIN.BATCH_SIZE, num_workers=cfg.TRAIN.NUM_WORKERS, test_batch_size=cfg.TEST.BATCH_SIZE)
+    datamodule = SALSACLRSDataModule(train_dataset=train_ds,val_datasets=[val_ds], test_datasets=[test_ds_small,test_ds_medium,test_ds_large], batch_size=cfg.TRAIN.BATCH_SIZE, num_workers=cfg.TRAIN.NUM_WORKERS, test_batch_size=cfg.TEST.BATCH_SIZE)
 
     # Monkeypatch: force persistent_workers=False (required when num_workers=0, e.g. on Kaggle)
     _orig_dataloader = datamodule.dataloader
