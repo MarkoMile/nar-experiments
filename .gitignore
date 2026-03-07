@@ -17,6 +17,9 @@ env/
 data/*
 !data/README.md
 
+# === deprecated ===
+src/configs/bfs/deprecated/*
+
 # === Lightning logs ===
 lightning_logs/*
 
