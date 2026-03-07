@@ -1,4 +1,4 @@
-RUN_NAME: "GIN-residual"
+RUN_NAME: "GIN-residual-grokking-hl"
 ALGORITHM: "bfs"
 MODEL:
   DECODER_USE_LAST_HIDDEN: True
