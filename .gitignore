@@ -57,3 +57,4 @@ htmlcov/
 # === OS files ===
 .DS_Store
 Thumbs.db
+src/configs/bfs/GIN_test_small.yml
