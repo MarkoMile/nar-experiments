@@ -75,15 +75,15 @@ _C.DATA.TRAIN.START_EPOCH = [0]
 
 _C.DATA.VAL = CN()
 _C.DATA.VAL.NUM_SAMPLES = 1000
-_C.DATA.VAL.GRAPH_GENERATOR = "er"
-_C.DATA.VAL.GENERATOR_PARAMS = [{"p": 0.5, "n": 16}]
-_C.DATA.VAL.NICKNAME = "er_mid"
+_C.DATA.VAL.GRAPH_GENERATOR = ["er"]
+_C.DATA.VAL.GENERATOR_PARAMS = [{"p": [0.5], "n": 16}]
+_C.DATA.VAL.NICKNAME = ["er_mid"]
 
 _C.DATA.TEST = CN()
-_C.DATA.TEST.NUM_SAMPLES = [1000, 1000, 1000, 1000, 1000]
+_C.DATA.TEST.NUM_SAMPLES = 1000
 _C.DATA.TEST.GRAPH_GENERATOR = ["er", "er"]
-_C.DATA.TEST.NICKNAME = ["er_mid", "er_hard"]
 _C.DATA.TEST.GENERATOR_PARAMS = [{"p": [0.5, 0.6, 0.7, 0.8, 0.9], "n": 16}, {"p": [0.1, 0.2, 0.3, 0.4, 0.5], "n":16}]
+_C.DATA.TEST.NICKNAME = ["er_mid", "er_hard"]
 
 
 # -----------------------------------------------------------------------------

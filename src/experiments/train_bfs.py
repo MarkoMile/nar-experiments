@@ -28,16 +28,21 @@ def train(model, datamodule, cfg, specs, seed=42, checkpoint_dir=None, enable_wa
     else:
         wandblogger = None
 
+
+    # Determine the monitor metric dynamcially
+    val_nickname = datamodule.get_val_loader_nickname(0)
+    monitor_metric = f"val/graph_f1/{val_nickname}"
+
     callbacks = []
     # checkpointing
     if checkpoint_dir is not None:
-        ckpt_cbk = pl.callbacks.ModelCheckpoint(dirpath=os.path.join(cfg.DATA.ROOT, "checkpoints", str(cfg.ALGORITHM), cfg.RUN_NAME), monitor="val/graph_f1", mode="max", filename=f'seed{seed}-{{epoch}}-{{step}}', save_top_k=1, save_last=True)
+        ckpt_cbk = pl.callbacks.ModelCheckpoint(dirpath=os.path.join(cfg.DATA.ROOT, "checkpoints", str(cfg.ALGORITHM), cfg.RUN_NAME), monitor=monitor_metric, mode="max", filename=f'seed{seed}-{{epoch}}-{{step}}', save_top_k=1, save_last=True)
         callbacks.append(ckpt_cbk)
     else:
         ckpt_cbk = None
 
     # early stopping
-    early_stop_cbk = pl.callbacks.EarlyStopping(monitor="val/graph_f1", patience=cfg.TRAIN.EARLY_STOPPING_PATIENCE, mode="max")
+    early_stop_cbk = pl.callbacks.EarlyStopping(monitor=monitor_metric, patience=cfg.TRAIN.EARLY_STOPPING_PATIENCE, mode="max")
     callbacks.append(early_stop_cbk)
 
     # callbacks.append(pl.callbacks.RichProgressBar()) # <--- REMOVED FOR BETTER LOGGING IN KAGGLE
@@ -130,13 +135,17 @@ if __name__ == '__main__':
     train_ds = get_dataset("train",cfg)
     val_ds = get_dataset("val",cfg)
     test_datasets = get_dataset("test",cfg)
-    test_ds_small = test_datasets['er_16']
-    test_ds_medium = test_datasets['er_80']
-    test_ds_large = test_datasets['er_800']
     specs = train_ds.specs
     
-    # load model
-    datamodule = SALSACLRSDataModule(train_dataset=train_ds,val_datasets=[val_ds], test_datasets=[test_ds_small,test_ds_medium,test_ds_large], batch_size=cfg.TRAIN.BATCH_SIZE, num_workers=cfg.TRAIN.NUM_WORKERS, test_batch_size=cfg.TEST.BATCH_SIZE)
+    # load model
+    datamodule = SALSACLRSDataModule(
+        train_dataset=train_ds,
+        val_datasets=list(val_ds.values()), 
+        test_datasets=list(test_datasets.values()), 
+        batch_size=cfg.TRAIN.BATCH_SIZE, 
+        num_workers=cfg.TRAIN.NUM_WORKERS, 
+        test_batch_size=cfg.TEST.BATCH_SIZE
+    )
 
     # Monkeypatch: force persistent_workers=False (required when num_workers=0, e.g. on Kaggle)
     _orig_dataloader = datamodule.dataloader

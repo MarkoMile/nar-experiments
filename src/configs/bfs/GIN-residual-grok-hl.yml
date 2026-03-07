@@ -18,6 +18,34 @@ DATA:
     # defaults from salsaclrs.data.py
     # n=[4, 7, 11, 13, 16], p_range=er_probabilities(16) approx [0.17, 0.52]
     GENERATOR_PARAMS: [{ "n": [4, 7, 11, 13, 16], "p_range": [0.17, 0.52] }]
+  VAL:
+    NUM_SAMPLES: 5
+    GRAPH_GENERATOR: ["er", "er", "er", "ws", "ws", "ws", "delaunay", "delaunay", "delaunay"]
+    NICKNAME: ["er_16", "er_80", "er_800", "ws_16", "ws_80", "ws_800", "delaunay_16", "delaunay_80", "delaunay_800"]
+    GENERATOR_PARAMS: 
+      - { "p_range": [0.173, 0.52], "n": 16 }
+      - { "p_range": [0.054, 0.164], "n": 80 }
+      - { "p_range": [0.008, 0.025], "n": 800 }
+      - { "p_range": [0.05, 0.2], "k": [4,6,8], "n": 16 }
+      - { "p_range": [0.05, 0.2], "k": [4,6,8], "n": 80 }
+      - { "p_range": [0.05, 0.2], "k": [4,6,8], "n": 800 }
+      - { "n": 16 }
+      - { "n": 80 }
+      - { "n": 800 }
+  TEST:
+    NUM_SAMPLES: 5
+    GRAPH_GENERATOR: ["er", "er", "er", "ws", "ws", "ws", "delaunay", "delaunay", "delaunay"]
+    NICKNAME: ["er_16", "er_80", "er_800", "ws_16", "ws_80", "ws_800", "delaunay_16", "delaunay_80", "delaunay_800"]
+    GENERATOR_PARAMS:
+      - { "p_range": [0.173, 0.52], "n": 16 }
+      - { "p_range": [0.054, 0.164], "n": 80 }
+      - { "p_range": [0.008, 0.025], "n": 800 }
+      - { "p_range": [0.05, 0.2], "k": [4,6,8], "n": 16 }
+      - { "p_range": [0.05, 0.2], "k": [4,6,8], "n": 80 }
+      - { "p_range": [0.05, 0.2], "k": [4,6,8], "n": 800 }
+      - { "n": 16 }
+      - { "n": 80 }
+      - { "n": 800 }
 
 TRAIN:
   LOSS:

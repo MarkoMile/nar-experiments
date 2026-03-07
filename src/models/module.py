@@ -180,7 +180,7 @@ class SALSACLRSModel(pl.LightningModule):
         for dataloader_idx in self.step_output_cache.keys():
             metrics = self._end_of_epoch_metrics(dataloader_idx)
             for key in metrics:
-                self.log(f"val/{key}", metrics[key], add_dataloader_idx=False)
+                self.log(f"val/{key}/{self.trainer.datamodule.get_val_loader_nickname(dataloader_idx)}", metrics[key], add_dataloader_idx=False)
         self.step_output_cache.clear()
 
     def on_test_epoch_end(self):
@@ -201,9 +201,14 @@ class SALSACLRSModel(pl.LightningModule):
         if self.cfg.TRAIN.SCHEDULER.ENABLE:
             try:
                 scheduler = getattr(torch.optim.lr_scheduler, self.cfg.TRAIN.SCHEDULER.NAME)(optimizer, **self.cfg.TRAIN.SCHEDULER.PARAMS[0])
+                monitor_metric = "val/outloss/0"
+                if hasattr(self, 'trainer') and self.trainer is not None and hasattr(self.trainer, 'datamodule') and self.trainer.datamodule is not None:
+                    nickname = self.trainer.datamodule.get_val_loader_nickname(0)
+                    monitor_metric = f"val/outloss/{nickname}"
+
                 out["lr_scheduler"] = {
                     "scheduler": scheduler,
-                    "monitor": "val/outloss/0",
+                    "monitor": monitor_metric,
                     "interval": "epoch",
                     "frequency": 1,
                 }

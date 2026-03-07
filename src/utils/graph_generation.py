@@ -61,20 +61,44 @@ def get_dataset(split: str, cfg: CfgNode = None):
         split_upper = split.upper()
         if hasattr(cfg.DATA, split_upper) and hasattr(getattr(cfg.DATA, split_upper), "GENERATOR_PARAMS"):
              params = getattr(cfg.DATA, split_upper).GENERATOR_PARAMS
-             if isinstance(params, list) and len(params) > 0 and split == "train":
-                # Only using custom generation for train split for now to fix generalization
-                # Test/Val are usually fixed benchmarks
-                logger.info(f"Using custom generator params from config for {split}: {params[0]}")
-                
-                return SALSACLRSDataset(
-                    root=root,
-                    split=split,
-                    algorithm=algorithm,
-                    num_samples=getattr(cfg.DATA, split_upper).NUM_SAMPLES,
-                    graph_generator=getattr(cfg.DATA, split_upper).GRAPH_GENERATOR[0], # Assume list of strings
-                    graph_generator_kwargs=params[0],
-                    verify_duplicates=False
-                )
+             if isinstance(params, list) and len(params) > 0:
+                 logger.info(f"Using custom generator params from config for {split}: {params}")
+                 
+                 if split == "train":
+                     # Train is a single dataset
+                     return SALSACLRSDataset(
+                         root=root,
+                         split=split,
+                         algorithm=algorithm,
+                         num_samples=getattr(cfg.DATA, split_upper).NUM_SAMPLES,
+                         graph_generator=getattr(cfg.DATA, split_upper).GRAPH_GENERATOR[0],
+                         graph_generator_kwargs=params[0],
+                         verify_duplicates=False
+                     )
+                 else:
+                     # Val and Test return a dictionary of datasets
+                     datasets = {}
+                     generators = getattr(cfg.DATA, split_upper).GRAPH_GENERATOR
+                     nicknames = getattr(cfg.DATA, split_upper).NICKNAME
+                     num_samples = getattr(cfg.DATA, split_upper).NUM_SAMPLES
+                     
+                     for i, param_dict in enumerate(params):
+                         gen = generators[i] if i < len(generators) else generators[0]
+                         nickname = nicknames[i] if i < len(nicknames) else f"{gen}_{i}"
+                         
+                         ds = SALSACLRSDataset(
+                             root=root,
+                             split=split,
+                             algorithm=algorithm,
+                             num_samples=num_samples,
+                             graph_generator=gen,
+                             graph_generator_kwargs=param_dict,
+                             verify_duplicates=False,
+                             nickname=nickname,
+                             ignore_all_hints=True # Usually true for val/test
+                         )
+                         datasets[nickname] = ds
+                     return datasets
 
         dataset = load_dataset(algorithm=algorithm, split=split, local_dir=root)
     except Exception as e:
