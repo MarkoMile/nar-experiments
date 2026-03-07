@@ -143,7 +143,7 @@ class SALSACLRSModel(pl.LightningModule):
         output.update({f"{m}_metric": metrics[m] for m in metrics})
         output["batch_size"] = torch.tensor(batch.num_graphs).float()
         output["num_nodes"] = torch.tensor(batch.num_nodes).float()
-        return loss, outloss, output
+        return loss, outloss, hintloss, output
 
     def _end_of_epoch_metrics(self, dataloader_idx):
         output = stack_dicts(self.step_output_cache[dataloader_idx])
@@ -161,17 +161,19 @@ class SALSACLRSModel(pl.LightningModule):
         return metrics
     
     def validation_step(self, batch, batch_idx, dataloader_idx=0):
-        loss, outloss, output = self._shared_eval(batch, dataloader_idx, "val")
+        loss, outloss, hintloss, output = self._shared_eval(batch, dataloader_idx, "val")
         self.log(f'val/loss/{self.trainer.datamodule.get_val_loader_nickname(dataloader_idx)}', loss, batch_size=batch.num_graphs, add_dataloader_idx=False)
         self.log(f'val/outloss/{self.trainer.datamodule.get_val_loader_nickname(dataloader_idx)}', outloss, batch_size=batch.num_graphs, add_dataloader_idx=False)
+        self.log(f'val/hintloss/{self.trainer.datamodule.get_val_loader_nickname(dataloader_idx)}', hintloss, batch_size=batch.num_graphs, add_dataloader_idx=False)
 
         self.step_output_cache[dataloader_idx].append(output)
         return loss
     
     def test_step(self, batch, batch_idx, dataloader_idx=0):
-        loss, outloss, output = self._shared_eval(batch, dataloader_idx, "test")
+        loss, outloss, hintloss, output = self._shared_eval(batch, dataloader_idx, "test")
         self.log(f'test/loss/{self.trainer.datamodule.get_test_loader_nickname(dataloader_idx)}', loss, batch_size=batch.num_graphs, add_dataloader_idx=False)
         self.log(f'test/outloss/{self.trainer.datamodule.get_test_loader_nickname(dataloader_idx)}', outloss, batch_size=batch.num_graphs, add_dataloader_idx=False)
+        self.log(f'test/hintloss/{self.trainer.datamodule.get_test_loader_nickname(dataloader_idx)}', hintloss, batch_size=batch.num_graphs, add_dataloader_idx=False)
 
         self.step_output_cache[dataloader_idx].append(output)
         return loss

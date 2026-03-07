@@ -95,7 +95,7 @@ def get_dataset(split: str, cfg: CfgNode = None):
                              graph_generator_kwargs=param_dict,
                              verify_duplicates=False,
                              nickname=nickname,
-                             ignore_all_hints=True # Usually true for val/test
+                             ignore_all_hints=(cfg.TRAIN.LOSS.HINT_LOSS_WEIGHT == 0.0) # if hints are ignored in config, ignore them in val/test too
                          )
                          datasets[nickname] = ds
                      return datasets
