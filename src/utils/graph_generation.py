@@ -3,6 +3,7 @@ import os
 from loguru import logger
 from salsaclrs import load_dataset, SALSACLRSDataset
 from yacs.config import CfgNode
+from torch.utils.data import ConcatDataset
 
 from src.utils.config import get_cfg_defaults
 
@@ -65,16 +66,31 @@ def get_dataset(split: str, cfg: CfgNode = None):
                  logger.info(f"Using custom generator params from config for {split}: {params}")
                  
                  if split == "train":
-                     # Train is a single dataset
-                     return SALSACLRSDataset(
-                         root=root,
-                         split=split,
-                         algorithm=algorithm,
-                         num_samples=getattr(cfg.DATA, split_upper).NUM_SAMPLES,
-                         graph_generator=getattr(cfg.DATA, split_upper).GRAPH_GENERATOR[0],
-                         graph_generator_kwargs=params[0],
-                         verify_duplicates=False
-                     )
+                     # Train iterates through all generator params and concatenates them
+                     datasets = []
+                     generators = getattr(cfg.DATA, split_upper).GRAPH_GENERATOR
+                     num_samples = getattr(cfg.DATA, split_upper).NUM_SAMPLES
+
+                     for i, param_dict in enumerate(params):
+                         gen = generators[i] if i < len(generators) else generators[0]
+                         # Ensure num_samples is accessed correctly if it's a list or a single int
+                         samples = num_samples[i] if isinstance(num_samples, list) and i < len(num_samples) else (num_samples[0] if isinstance(num_samples, list) else num_samples)
+                         
+                         ds = SALSACLRSDataset(
+                             root=root,
+                             split=split,
+                             algorithm=algorithm,
+                             num_samples=samples,
+                             graph_generator=gen,
+                             graph_generator_kwargs=param_dict,
+                             verify_duplicates=False
+                         )
+                         datasets.append(ds)
+                         
+                     # Concatenate the generated datasets and monkeypatch the specs needed for the model
+                     concat_ds = ConcatDataset(datasets)
+                     concat_ds.specs = datasets[0].specs
+                     return concat_ds
                  else:
                      # Val and Test return a dictionary of datasets
                      datasets = {}
