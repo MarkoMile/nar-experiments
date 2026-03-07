@@ -22,7 +22,7 @@ from salsaclrs import SALSACLRSDataModule
 logger.remove()
 logger.add(sys.stderr, level="INFO")
 
-def train(model, datamodule, cfg, specs, seed=42, checkpoint_dir=None, enable_wandb=False):
+def train(model, datamodule, cfg, specs, seed=42, checkpoint_dir=None, enable_wandb=False, enable_progress_bar=False):
     if enable_wandb:
         wandblogger = pl.loggers.WandbLogger(project=cfg.LOGGING.WANDB.PROJECT, group=cfg.LOGGING.WANDB.GROUP, name=cfg.RUN_NAME+"-"+str(seed))
     else:
@@ -45,9 +45,9 @@ def train(model, datamodule, cfg, specs, seed=42, checkpoint_dir=None, enable_wa
     early_stop_cbk = pl.callbacks.EarlyStopping(monitor=monitor_metric, patience=cfg.TRAIN.EARLY_STOPPING_PATIENCE, mode="max")
     callbacks.append(early_stop_cbk)
 
-    # callbacks.append(pl.callbacks.RichProgressBar()) # <--- REMOVED FOR BETTER LOGGING IN KAGGLE
-    from lightning.pytorch.callbacks import TQDMProgressBar
-    callbacks.append(TQDMProgressBar(refresh_rate=20))
+    if enable_progress_bar:
+        from lightning.pytorch.callbacks import TQDMProgressBar
+        callbacks.append(TQDMProgressBar(refresh_rate=20))
 
     trainer = pl.Trainer(
         enable_checkpointing=checkpoint_dir is not None,
@@ -59,7 +59,7 @@ def train(model, datamodule, cfg, specs, seed=42, checkpoint_dir=None, enable_wa
         gradient_clip_val=cfg.TRAIN.GRADIENT_CLIP_VAL,
         reload_dataloaders_every_n_epochs=datamodule.reload_every_n_epochs,
         precision=cfg.TRAIN.PRECISION,
-        enable_progress_bar=True,
+        enable_progress_bar=enable_progress_bar,
     )
 
     # Load checkpoint
@@ -111,6 +111,7 @@ if __name__ == '__main__':
     parser.add_argument("--seed", type=int, default=42, help="Random seed")
     parser.add_argument("--hints", action="store_true", help="Use hints.")
     parser.add_argument("--enable-wandb", action="store_true", help="Enable wandb logging")
+    parser.add_argument("--enable-progress-bar", action="store_true", help="Enable tqdm progress bars")
     args = parser.parse_args()
 
     # set seed
@@ -158,4 +159,4 @@ if __name__ == '__main__':
     model = SALSACLRSModel(specs=train_ds.specs, cfg=cfg)
 
     ckpt_dir = os.path.join(DATA_DIR, "checkpoints")
-    train(model, datamodule, cfg, train_ds.specs, seed = args.seed, checkpoint_dir=ckpt_dir, enable_wandb=args.enable_wandb)
+    train(model, datamodule, cfg, train_ds.specs, seed = args.seed, checkpoint_dir=ckpt_dir, enable_wandb=args.enable_wandb, enable_progress_bar=args.enable_progress_bar)
