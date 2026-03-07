@@ -52,19 +52,19 @@ TRAIN:
     OUTPUT_LOSS_WEIGHT: 1.0
     HINT_LOSS_WEIGHT: 1.0
     HIDDEN_LOSS_WEIGHT: 0.01
-  MAX_EPOCHS: 200 # Increased for grokking
+  MAX_EPOCHS: 300 # Increased for grokking
   BATCH_SIZE: 32
 
   ENABLE: True
   NUM_WORKERS: 0
-  EARLY_STOPPING_PATIENCE: 200 # Effectively disabled
+  EARLY_STOPPING_PATIENCE: 300 # Effectively disabled
   OPTIMIZER:
     LR: 0.0004239
 
   SCHEDULER:
     ENABLE: True
     NAME: "ReduceLROnPlateau"
-    PARAMS: [{ "mode": "min", "factor": 0.1, "patience": 100 }] # Increased patience
+    PARAMS: [{ "mode": "min", "factor": 0.5, "patience": 50 }] 
 
 TEST:
   BATCH_SIZE: 8
