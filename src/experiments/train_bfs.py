@@ -186,3 +186,6 @@ if __name__ == '__main__':
 
     ckpt_dir = os.path.join(DATA_DIR, "checkpoints")
     train(model, datamodule, cfg, train_ds.specs, seed = args.seed, checkpoint_dir=ckpt_dir, enable_wandb=args.enable_wandb, enable_progress_bar=args.enable_progress_bar)
+
+    if args.enable_wandb:
+        wandb.finish()
