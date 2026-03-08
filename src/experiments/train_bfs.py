@@ -24,7 +24,7 @@ logger.add(sys.stderr, level="INFO")
 
 def train(model, datamodule, cfg, specs, seed=42, checkpoint_dir=None, enable_wandb=False, enable_progress_bar=False):
     if enable_wandb:
-        wandblogger = pl.loggers.WandbLogger(project=cfg.LOGGING.WANDB.PROJECT, group=cfg.LOGGING.WANDB.GROUP, name=cfg.RUN_NAME+"-"+str(seed))
+        wandblogger = pl.loggers.WandbLogger(project=cfg.LOGGING.WANDB.PROJECT, group=cfg.LOGGING.WANDB.GROUP, name=cfg.RUN_NAME+"-"+str(seed), log_model="all")
     else:
         wandblogger = None
 
@@ -36,8 +36,17 @@ def train(model, datamodule, cfg, specs, seed=42, checkpoint_dir=None, enable_wa
     callbacks = []
     # checkpointing
     if checkpoint_dir is not None:
-        ckpt_cbk = pl.callbacks.ModelCheckpoint(dirpath=os.path.join(cfg.DATA.ROOT, "checkpoints", str(cfg.ALGORITHM), cfg.RUN_NAME), monitor=monitor_metric, mode="max", filename=f'seed{seed}-{{epoch}}-{{step}}', save_top_k=1, save_last=True)
+        ckpt_cbk = pl.callbacks.ModelCheckpoint(dirpath=os.path.join(cfg.DATA.ROOT, "checkpoints", str(cfg.ALGORITHM), cfg.RUN_NAME), monitor=monitor_metric, mode="max", filename=f'seed{seed}-{{epoch}}-{{step}}', save_top_k=1, save_last=False)
         callbacks.append(ckpt_cbk)
+        
+        periodic_ckpt_cbk = pl.callbacks.ModelCheckpoint(
+            dirpath=os.path.join(cfg.DATA.ROOT, "checkpoints", str(cfg.ALGORITHM), cfg.RUN_NAME),
+            filename=f'seed{seed}-periodic-{{epoch:03d}}',
+            every_n_epochs=50,
+            save_top_k=-1,
+            save_last=False,
+        )
+        callbacks.append(periodic_ckpt_cbk)
     else:
         ckpt_cbk = None
 
@@ -70,19 +79,36 @@ def train(model, datamodule, cfg, specs, seed=42, checkpoint_dir=None, enable_wa
     # Train
     if cfg.TRAIN.ENABLE:
         try:
-            logger.info("Starting training...")
-            trainer.fit(model, datamodule=datamodule)
-        except NaNException:
-            logger.info(f"NaN detected, trying to recover from {ckpt_cbk.best_model_path}...")
             try:
-                trainer.fit(model, datamodule=datamodule, ckpt_path=ckpt_cbk.best_model_path)
+                logger.info("Starting training...")
+                trainer.fit(model, datamodule=datamodule)
             except NaNException:
-                logger.info("Recovery failed, stopping training...")
+                logger.info(f"NaN detected, trying to recover from {ckpt_cbk.best_model_path}...")
+                try:
+                    trainer.fit(model, datamodule=datamodule, ckpt_path=ckpt_cbk.best_model_path)
+                except NaNException:
+                    logger.info("Recovery failed, stopping training...")
+        except KeyboardInterrupt:
+            logger.info("Training interrupted via KeyboardInterrupt. Proceeding to save final checkpoint...")
+
+    # Save final checkpoint explicitly
+    if checkpoint_dir is not None and cfg.TRAIN.ENABLE:
+        final_ckpt_path = os.path.join(checkpoint_dir, str(cfg.ALGORITHM), cfg.RUN_NAME, f'seed{seed}-final.ckpt')
+        trainer.save_checkpoint(final_ckpt_path)
+        logger.info(f"Saved final checkpoint to {final_ckpt_path}")
+        
+        if enable_wandb and wandblogger is not None:
+            artifact = wandb.Artifact(name=f"model-{wandblogger.experiment.id}-final", type="model")
+            artifact.add_file(final_ckpt_path)
+            wandblogger.experiment.log_artifact(artifact)
 
     # Load best model
     if cfg.TRAIN.LOAD_CHECKPOINT is None and cfg.TRAIN.ENABLE:
-        logger.info(f"Best model path: {ckpt_cbk.best_model_path}")
-        model = SALSACLRSModel.load_from_checkpoint(ckpt_cbk.best_model_path)
+        if ckpt_cbk and ckpt_cbk.best_model_path:
+            logger.info(f"Best model path: {ckpt_cbk.best_model_path}")
+            model = SALSACLRSModel.load_from_checkpoint(ckpt_cbk.best_model_path)
+        else:
+            logger.warning("No best model found. Testing with current weights.")
 
     # Test
     logger.info("Testing best model...")
