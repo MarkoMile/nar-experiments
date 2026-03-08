@@ -10,6 +10,8 @@ MODEL:
     LAYERNORM:
       ENABLE: True
       MODE: "node"
+  GRU:
+    ENABLE: False
 
 DATA:
   TRAIN:

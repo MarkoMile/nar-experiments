@@ -5,6 +5,7 @@ MODEL:
   PROCESSOR_USE_LAST_HIDDEN: True
   PROCESSOR:
     NAME: "PGN"
+    RESIDUAL: False
     KWARGS: [{"aggr": "max"}]
     LAYERNORM:
       ENABLE: True
