@@ -32,6 +32,9 @@ _C.MODEL.TEACHER_FORCING = CN()
 _C.MODEL.TEACHER_FORCING.ENABLE = False
 _C.MODEL.TEACHER_FORCING.HINT_DROPOUT = 0.0
 
+_C.MODEL.AUTOREGRESSIVE = CN()
+_C.MODEL.AUTOREGRESSIVE.ENABLE = False
+
 # -----------------------------------------------------------------------------
 # Training
 

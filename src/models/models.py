@@ -456,7 +456,7 @@ class EncodeProcessDecode(torch.nn.Module):
         self.has_randomness = 'randomness' in specs
         self.processor = Processor(cfg, self.has_randomness)
         self.encoder = Encoder(specs, self.cfg.MODEL.HIDDEN_DIM)
-        if self.cfg.MODEL.TEACHER_FORCING.ENABLE:
+        if self.cfg.MODEL.TEACHER_FORCING.ENABLE or self.cfg.MODEL.AUTOREGRESSIVE.ENABLE:
             self.hint_encoder = HintEncoder(specs, self.cfg.MODEL.HIDDEN_DIM)
         self.residual_norm = torch.nn.LayerNorm(self.cfg.MODEL.HIDDEN_DIM)
 
@@ -491,19 +491,56 @@ class EncodeProcessDecode(torch.nn.Module):
         # Process for length
         hidden = input_hidden
         noise_std = self.cfg.MODEL.LATENT_NOISE_STD
+        
+        use_teacher_forcing = self.cfg.MODEL.TEACHER_FORCING.ENABLE and self.training
+        use_autoregressive = self.cfg.MODEL.AUTOREGRESSIVE.ENABLE and (not use_teacher_forcing)
+        
         for step in range(max_len):
-            # 1. Teacher Forcing: Inject ground-truth hint from step t-1
-            if self.cfg.MODEL.TEACHER_FORCING.ENABLE and self.training:
+            # 1. Inject hints (Teacher Forcing or Autoregressive)
+            if use_teacher_forcing:
                 if step == 0:
                     encoded_hint = torch.zeros_like(hidden)
                 else:
                     encoded_hint = self.hint_encoder(batch, step - 1)
                     if encoded_hint is None:
                         encoded_hint = torch.zeros_like(hidden)
+            elif use_autoregressive:
+                if step == 0:
+                    encoded_hint = torch.zeros_like(hidden)
+                else:
+                    prev_hints = hints[-1]
+                    encoded_hint = None
+                    for key in self.hint_encoder.encoder.keys():
+                        dkey = key.removesuffix('_h')
+                        if dkey not in prev_hints:
+                            continue
+                        
+                        # Apply differentiable formulations for continuous predictions
+                        _, loc, type_, _ = self.specs[key]
+                        raw_pred = prev_hints[dkey]
+                        
+                        if type_ == 'categorical' or type_ == 'mask_one':
+                            soft_pred = torch.softmax(raw_pred, dim=-1)
+                        elif type_ == 'mask':
+                            soft_pred = torch.sigmoid(raw_pred)
+                        else: # scalar
+                            soft_pred = raw_pred
+                        
+                        # Re-encode soft_pred back into hidden dimension
+                        key_encoding = self.hint_encoder.encoder[key](soft_pred)
+                        if encoded_hint is None:
+                            encoded_hint = key_encoding
+                        else:
+                            encoded_hint += key_encoding
+                            
+                    if encoded_hint is None:
+                        encoded_hint = torch.zeros_like(hidden)
+
+            if use_teacher_forcing or use_autoregressive:
                         
                 # Hint Dropout (Scheduled Sampling)
                 dropout_prob = self.cfg.MODEL.TEACHER_FORCING.HINT_DROPOUT
-                if dropout_prob > 0.0:
+                if dropout_prob > 0.0 and self.training:
                     # Randomly zero out the hint embedding vector with probability `dropout_prob`
                     # We use a single mask per graph node (N, 1) to drop the entire hint embedding
                     mask = (torch.rand(encoded_hint.shape[0], 1, device=encoded_hint.device) > dropout_prob).float()

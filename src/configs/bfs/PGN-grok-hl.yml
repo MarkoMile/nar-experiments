@@ -12,8 +12,10 @@ MODEL:
       MODE: "node"
   LATENT_NOISE_STD: 0.015  # σ for Gaussian noise injected into hidden state during training
   TEACHER_FORCING:
-    ENABLE: False
+    ENABLE: True
     HINT_DROPOUT: 0.2
+  AUTOREGRESSIVE:
+    ENABLE: True
   GRU:
     ENABLE: True
 

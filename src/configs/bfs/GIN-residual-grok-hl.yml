@@ -14,6 +14,8 @@ MODEL:
   TEACHER_FORCING:
     ENABLE: False
     HINT_DROPOUT: 0.0
+  AUTOREGRESSIVE:
+    ENABLE: False
   GRU:
     ENABLE: False
 
