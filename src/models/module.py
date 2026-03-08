@@ -131,6 +131,12 @@ class SALSACLRSModel(pl.LightningModule):
         self.log("train/hiddenloss", hiddenloss, batch_size=batch.num_graphs)
         self.log("train/loss", loss, batch_size=batch.num_graphs)
         self.log('train/lr', self.trainer.optimizers[0].param_groups[0]['lr'])
+
+        # Log total weight norm to track grokking phase transition
+        # (weights inflate during memorization, deflate when weight decay kicks in)
+        total_norm = torch.linalg.vector_norm(torch.stack([torch.linalg.vector_norm(p, 2) for p in self.parameters() if p.requires_grad]), 2)
+        self.log('train/weight_norm', total_norm, batch_size=batch.num_graphs)
+
         return loss
 
     def _shared_eval(self, batch, dataloader_idx, stage):
