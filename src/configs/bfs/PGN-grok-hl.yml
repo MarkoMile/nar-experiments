@@ -10,7 +10,7 @@ MODEL:
     LAYERNORM:
       ENABLE: True
       MODE: "node"
-  LATENT_NOISE_STD: 0.05  # σ for Gaussian noise injected into hidden state during training
+  LATENT_NOISE_STD: 0.015  # σ for Gaussian noise injected into hidden state during training
   GRU:
     ENABLE: False
 
