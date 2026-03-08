@@ -58,3 +58,4 @@ htmlcov/
 .DS_Store
 Thumbs.db
 src/configs/bfs/GIN_test_small.yml
+src/configs/bfs/PGN_test_small.yml
