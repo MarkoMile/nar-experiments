@@ -511,13 +511,12 @@ class EncodeProcessDecode(torch.nn.Module):
                     prev_hints = hints[-1]
                     encoded_hint = None
                     for key in self.hint_encoder.encoder.keys():
-                        dkey = key.removesuffix('_h')
-                        if dkey not in prev_hints:
+                        if key not in prev_hints:
                             continue
                         
                         # Apply differentiable formulations for continuous predictions
                         _, loc, type_, _ = self.specs[key]
-                        raw_pred = prev_hints[dkey]
+                        raw_pred = prev_hints[key]
                         
                         if type_ == 'categorical' or type_ == 'mask_one':
                             soft_pred = torch.softmax(raw_pred, dim=-1)
