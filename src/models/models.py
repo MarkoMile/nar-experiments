@@ -205,10 +205,13 @@ class HintEncoder(nn.Module):
             if loc == 'edge':
                 logger.debug(f'Ignoring edge hint encoder for {k}')
                 continue
-            
             input_dim = 1
             if type_ == 'categorical':
                 input_dim = cat_dim
+                
+            if (loc, type_) not in _ENCODER_MAP:
+                logger.debug(f"Skipping {k} in HintEncoder: {(loc, type_)} not in _ENCODER_MAP")
+                continue
                 
             self.encoder[k] = _ENCODER_MAP[(loc, type_)](input_dim, hidden_dim)
 
