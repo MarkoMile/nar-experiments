@@ -15,11 +15,68 @@ from src.utils.utils import NaNException
 # PROCESSOR
 #################
 
+class PGN(pyg_nn.MessagePassing):
+    """Adapted from https://github.com/google-deepmind/clrs/blob/64e016998f14305f94cf3f6d19ac9d7edc39a185/clrs/_src/processors.py#L330"""
+    def __init__(self, in_channels, out_channels, aggr, mid_act=None, activation=nn.ReLU()):
+        super(PGN, self).__init__(aggr=aggr)
+        logger.info(f"PGN: in_channels: {in_channels}, out_channels: {out_channels}")
+        self.in_channels = in_channels
+        self.mid_channels = out_channels
+        self.mid_act = mid_act
+        self.out_channels = out_channels
+        self.activation = activation
+
+        # Message MLPs
+        self.m_1 = nn.Linear(in_channels, self.mid_channels) # source node
+        self.m_2 = nn.Linear(in_channels, self.mid_channels) # target node
+        
+        self.msg_mlp = nn.Sequential(
+            nn.ReLU(),
+            nn.Linear(self.mid_channels, self.mid_channels),
+            nn.ReLU(),
+            nn.Linear(self.mid_channels, self.mid_channels)
+        )
+
+        # Edge weight scaler
+        self.edge_weight_scaler = nn.Linear(1, self.mid_channels)
+
+        # Output MLP
+        self.o1 = nn.Linear(in_channels, out_channels) # skip connection
+        self.o2 = nn.Linear(self.mid_channels, out_channels)
+
+    def forward(self, x, edge_index, edge_weight=None):
+        out = self.propagate(edge_index, x=x, edge_weight=edge_weight)
+        h_1 = self.o1(x)
+        h_2 = self.o2(out)
+        out = h_1 + h_2
+        if self.activation is not None:
+            out = self.activation(out)
+        return out
+    
+    def message(self, x_j, x_i, edge_weight=None):
+        # j is source, i is target
+        msg_1 = self.m_1(x_j)
+        msg_2 = self.m_2(x_i)
+        
+        msg = msg_1 + msg_2        
+        if edge_weight is not None:
+            msg_e = self.edge_weight_scaler(edge_weight.reshape(-1, 1))
+            msg = msg + msg_e
+        
+        msg = self.msg_mlp(msg)
+
+        if self.mid_act is not None:
+            msg = self.mid_act(msg)
+
+        return msg
+
 def _get_processor(name):
     if name == "GCNConv":
         return pyg_nn.GCNConv
     elif name == "GINConv":
-        return _gin_module    
+        return _gin_module
+    elif name == "PGN":
+        return PGN
     else:
         raise ValueError(f"Unknown processor {name}")
 
@@ -348,6 +405,9 @@ class EncodeProcessDecode(torch.nn.Module):
         self.encoder = Encoder(specs, self.cfg.MODEL.HIDDEN_DIM)
         self.residual_norm = torch.nn.LayerNorm(self.cfg.MODEL.HIDDEN_DIM)
 
+        if self.cfg.MODEL.GRU.ENABLE:
+            self.gru = torch.nn.GRUCell(self.cfg.MODEL.HIDDEN_DIM, self.cfg.MODEL.HIDDEN_DIM)
+
         decoder_input = self.cfg.MODEL.HIDDEN_DIM*3 if self.cfg.MODEL.DECODER_USE_LAST_HIDDEN else self.cfg.MODEL.HIDDEN_DIM*2
         self.decoder = Decoder(specs, decoder_input, no_hint=self.cfg.TRAIN.LOSS.HINT_LOSS_WEIGHT == 0.0)
         logger.debug(f"Decoder: {self.cfg.TRAIN.LOSS.HINT_LOSS_WEIGHT == 0.0}")
@@ -383,6 +443,8 @@ class EncodeProcessDecode(torch.nn.Module):
                     hidden = self.residual_norm(hidden + processed)
                 else:
                     hidden = processed
+                if self.cfg.MODEL.GRU.ENABLE:
+                    hidden = self.gru(hidden, last_hidden)
             if self.cfg.TRAIN.LOSS.HINT_LOSS_WEIGHT > 0.0:
                 hints.append(self.decoder(stack_hidden(input_hidden, hidden, last_hidden, self.cfg.MODEL.DECODER_USE_LAST_HIDDEN), batch, 'hints'))
 
