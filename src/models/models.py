@@ -383,13 +383,13 @@ class EncodeProcessDecode(torch.nn.Module):
                     hidden = self.residual_norm(hidden + processed)
                 else:
                     hidden = processed
-            if self.training and self.cfg.TRAIN.LOSS.HINT_LOSS_WEIGHT > 0.0:
+            if self.cfg.TRAIN.LOSS.HINT_LOSS_WEIGHT > 0.0:
                 hints.append(self.decoder(stack_hidden(input_hidden, hidden, last_hidden, self.cfg.MODEL.DECODER_USE_LAST_HIDDEN), batch, 'hints'))
 
             # Check if output needs to be constructed
             if (batch.length == step+1).sum() > 0:
                 # Decode outputs
-                if self.training and self.cfg.TRAIN.LOSS.HINT_LOSS_WEIGHT > 0.0:
+                if self.cfg.TRAIN.LOSS.HINT_LOSS_WEIGHT > 0.0:
                     # The last hint is the output, no need to decode again, its the same decoder
                     output_step = grab_outputs(hints[-1], batch)
                 else:
