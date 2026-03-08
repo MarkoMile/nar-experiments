@@ -435,7 +435,12 @@ class EncodeProcessDecode(torch.nn.Module):
 
         # Process for length
         hidden = input_hidden
+        noise_std = self.cfg.MODEL.LATENT_NOISE_STD
         for step in range(max_len):
+            # Inject latent Gaussian noise during training to prevent hidden state drift
+            # Applied after last_hidden so GRU has a clean reference to correct against
+            if self.training and noise_std > 0:
+                hidden = hidden + torch.randn_like(hidden) * noise_std
             last_hidden = hidden
             for _ in range(self.cfg.MODEL.MSG_PASSING_STEPS):
                 processed = self.processor(input_hidden, hidden, last_hidden, randomness=randomness[:, step] if randomness is not None else None, edge_index=batch.edge_index, batch_assignment=batch.batch, **{self.edge_weight_name: self.process_weights(batch) for _ in range(1) if hasattr(batch, 'weights') })
