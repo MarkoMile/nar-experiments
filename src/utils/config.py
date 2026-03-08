@@ -28,6 +28,10 @@ _C.MODEL.LATENT_NOISE_STD = 0.0  # Gaussian noise σ injected into hidden state 
 _C.MODEL.GRU = CN()
 _C.MODEL.GRU.ENABLE = False
 
+_C.MODEL.TEACHER_FORCING = CN()
+_C.MODEL.TEACHER_FORCING.ENABLE = False
+_C.MODEL.TEACHER_FORCING.HINT_DROPOUT = 0.0
+
 # -----------------------------------------------------------------------------
 # Training
 

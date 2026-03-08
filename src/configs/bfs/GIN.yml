@@ -11,6 +11,9 @@ MODEL:
       ENABLE: True
       MODE: "node"
   LATENT_NOISE_STD: 0.0
+  TEACHER_FORCING:
+    ENABLE: False
+    HINT_DROPOUT: 0.0
   GRU:
     ENABLE: False
 

@@ -191,6 +191,56 @@ class Encoder(nn.Module):
 
         randomness = batch.randomness if "randomness" in batch.inputs else None
         return hidden, randomness
+
+class HintEncoder(nn.Module):
+    def __init__(self, specs, hidden_dim=128):
+        super().__init__()
+        self.specs = specs
+        self.hidden_dim = hidden_dim
+        self.encoder = nn.ModuleDict()
+        for k, v in specs.items():
+            stage, loc, type_, cat_dim = v
+            if stage != 'hint':
+                continue
+            if loc == 'edge':
+                logger.debug(f'Ignoring edge hint encoder for {k}')
+                continue
+            
+            input_dim = 1
+            if type_ == 'categorical':
+                input_dim = cat_dim
+                
+            self.encoder[k] = _ENCODER_MAP[(loc, type_)](input_dim, hidden_dim)
+
+    def forward(self, batch, step):
+        """Encodes all ground-truth hints for a specific timestep.
+        Only encodes node-level hints to sum with the node hidden state.
+        """
+        hidden = None
+        for key in batch.hints:
+            if key not in self.encoder:
+                continue
+            
+            # Check if it's a node hint
+            if key not in batch.node_attrs():
+                continue
+                
+            # Ground truth hints are shape [N, MaxSteps] or [N, MaxSteps, C]
+            # We slice the specific step
+            hint_step = batch[key][:, step]
+            
+            encoding = self.encoder[key](hint_step)
+            # check of nan
+            if torch.isnan(encoding).any():
+                logger.warning(f"NaN in encoded hint state for {key}")
+                raise NaNException(f"NaN in encoded hint state for {key}")
+                
+            if hidden is None:
+                hidden = encoding
+            else:
+                hidden += encoding
+                
+        return hidden
     
 #################
 # DECODER
@@ -403,6 +453,8 @@ class EncodeProcessDecode(torch.nn.Module):
         self.has_randomness = 'randomness' in specs
         self.processor = Processor(cfg, self.has_randomness)
         self.encoder = Encoder(specs, self.cfg.MODEL.HIDDEN_DIM)
+        if self.cfg.MODEL.TEACHER_FORCING.ENABLE:
+            self.hint_encoder = HintEncoder(specs, self.cfg.MODEL.HIDDEN_DIM)
         self.residual_norm = torch.nn.LayerNorm(self.cfg.MODEL.HIDDEN_DIM)
 
         if self.cfg.MODEL.GRU.ENABLE:
@@ -437,10 +489,30 @@ class EncodeProcessDecode(torch.nn.Module):
         hidden = input_hidden
         noise_std = self.cfg.MODEL.LATENT_NOISE_STD
         for step in range(max_len):
-            # Inject latent Gaussian noise during training to prevent hidden state drift
-            # Applied after last_hidden so GRU has a clean reference to correct against
+            # 1. Teacher Forcing: Inject ground-truth hint from step t-1
+            if self.cfg.MODEL.TEACHER_FORCING.ENABLE and self.training:
+                if step == 0:
+                    encoded_hint = torch.zeros_like(hidden)
+                else:
+                    encoded_hint = self.hint_encoder(batch, step - 1)
+                    if encoded_hint is None:
+                        encoded_hint = torch.zeros_like(hidden)
+                        
+                # Hint Dropout (Scheduled Sampling)
+                dropout_prob = self.cfg.MODEL.TEACHER_FORCING.HINT_DROPOUT
+                if dropout_prob > 0.0:
+                    # Randomly zero out the hint embedding vector with probability `dropout_prob`
+                    # We use a single mask per graph node (N, 1) to drop the entire hint embedding
+                    mask = (torch.rand(encoded_hint.shape[0], 1, device=encoded_hint.device) > dropout_prob).float()
+                    # Scale according to standard inverted dropout to maintain expected sum
+                    encoded_hint = encoded_hint * mask / (1.0 - dropout_prob)
+                    
+                hidden = hidden + encoded_hint
+
+            # 2. Inject latent Gaussian noise during training to prevent hidden state drift
             if self.training and noise_std > 0:
                 hidden = hidden + torch.randn_like(hidden) * noise_std
+            
             last_hidden = hidden
             for _ in range(self.cfg.MODEL.MSG_PASSING_STEPS):
                 processed = self.processor(input_hidden, hidden, last_hidden, randomness=randomness[:, step] if randomness is not None else None, edge_index=batch.edge_index, batch_assignment=batch.batch, **{self.edge_weight_name: self.process_weights(batch) for _ in range(1) if hasattr(batch, 'weights') })
