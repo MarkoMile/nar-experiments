@@ -313,7 +313,7 @@ class BaseEdgeDecoder(nn.Module):
     def forward(self, hiddens, edge_index):
         zs = self.source_lin(hiddens) # N x H
         zt = self.target_lin(hiddens) # N x H
-        return (zs[edge_index[0]] * zt[edge_index[1]]).sum(dim=-1)
+        return (zs[edge_index[0]] * zt[edge_index[1]]).sum(dim=-1) / (self.hidden_dim ** 0.5)
     
 class EdgeMaskDecoder(BaseEdgeDecoder):
     def __init__(self, input_dim, hidden_dim=128):
