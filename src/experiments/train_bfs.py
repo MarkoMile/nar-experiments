@@ -60,6 +60,8 @@ class EpochProfilingCallback(pl.Callback):
             self.batch_counts.clear()
 
 def train(model, datamodule, cfg, specs, seed=42, checkpoint_dir=None, enable_wandb=False, enable_progress_bar=False):
+    # Enable TF32 for matrix multiplications (massive speedup on Ampere/Ada/Blackwell GPUs)
+    torch.set_float32_matmul_precision('high')
     if enable_wandb:
         wandblogger = pl.loggers.WandbLogger(project=cfg.LOGGING.WANDB.PROJECT, group=cfg.LOGGING.WANDB.GROUP, name=cfg.RUN_NAME+"-"+str(seed), log_model="all")
     else:

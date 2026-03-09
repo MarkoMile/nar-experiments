@@ -61,12 +61,12 @@ TRAIN:
   LOSS:
     OUTPUT_LOSS_WEIGHT: 1.0
     HINT_LOSS_WEIGHT: 1.0
-    HIDDEN_LOSS_WEIGHT: 0.01
+    HIDDEN_LOSS_WEIGHT: 0.0 # disabled for grokking (and because of GRU and LayerNorm)
   MAX_EPOCHS: 2000 # Increased for grokking
-  BATCH_SIZE: 32
+  BATCH_SIZE: 256
 
   ENABLE: True
-  NUM_WORKERS: 0
+  NUM_WORKERS: 31
   EARLY_STOPPING_PATIENCE: 2000 # Effectively disabled
   OPTIMIZER:
     LR: 0.0004239
