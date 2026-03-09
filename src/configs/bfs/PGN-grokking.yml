@@ -3,6 +3,7 @@ ALGORITHM: 'bfs'
 MODEL:
   DECODER_USE_LAST_HIDDEN: True
   PROCESSOR_USE_LAST_HIDDEN: True
+  HIDDEN_DIM: 256 # increased for grokking
   PROCESSOR:
     NAME: "PGN"
     RESIDUAL: False
@@ -13,7 +14,7 @@ MODEL:
   LATENT_NOISE_STD: 0.015  # σ for Gaussian noise injected into hidden state during training
   TEACHER_FORCING:
     ENABLE: True
-    HINT_DROPOUT: 0.2
+    HINT_DROPOUT: 0.4
   AUTOREGRESSIVE:
     ENABLE: True
   GRU:
@@ -21,7 +22,7 @@ MODEL:
 
 DATA:
   TRAIN:
-    NUM_SAMPLES: [3334, 3333, 3333]
+    NUM_SAMPLES: [16667, 16667, 16666]
     GRAPH_GENERATOR: ["er", "ws", "delaunay"]
     GENERATOR_PARAMS: 
       - { "n": [4, 7, 11, 13, 16], "p_range": [0.17, 0.52] }
@@ -62,15 +63,15 @@ TRAIN:
     OUTPUT_LOSS_WEIGHT: 1.0
     HINT_LOSS_WEIGHT: 1.0
     HIDDEN_LOSS_WEIGHT: 0.0 # disabled for grokking (and because of GRU and LayerNorm)
-  MAX_EPOCHS: 2000 # Increased for grokking
-  BATCH_SIZE: 256
+  MAX_EPOCHS: 10000 # Increased for grokking
+  BATCH_SIZE: 512
 
   ENABLE: True
-  NUM_WORKERS: 4
-  EARLY_STOPPING_PATIENCE: 2000 # Effectively disabled
+  NUM_WORKERS: 5
+  EARLY_STOPPING_PATIENCE: 10000 # Effectively disabled
   OPTIMIZER:
     LR: 0.0004239
-    WEIGHT_DECAY: 0.1 # higher for grokking
+    WEIGHT_DECAY: 0.05 # higher for grokking (lowered from 0.1 to try and get stabler results)
 
   SCHEDULER:
     ENABLE: False # disabled for grokking
