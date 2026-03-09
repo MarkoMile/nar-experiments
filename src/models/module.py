@@ -202,7 +202,7 @@ class SALSACLRSModel(pl.LightningModule):
         if self.cfg.TRAIN.OPTIMIZER.NAME == "adam":
             optimizer = torch.optim.Adam(self.parameters(), lr=self.cfg.TRAIN.OPTIMIZER.LR)
         elif self.cfg.TRAIN.OPTIMIZER.NAME == "adamw":
-            optimizer = torch.optim.AdamW(self.parameters(), lr=self.cfg.TRAIN.OPTIMIZER.LR)
+            optimizer = torch.optim.AdamW(self.parameters(), lr=self.cfg.TRAIN.OPTIMIZER.LR, weight_decay=self.cfg.TRAIN.OPTIMIZER.WEIGHT_DECAY)
         else:
             raise NotImplementedError(f"Optimizer {self.cfg.TRAIN.OPTIMIZER.NAME} not implemented")
         out = {"optimizer": optimizer}

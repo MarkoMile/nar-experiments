@@ -69,6 +69,7 @@ TRAIN:
   EARLY_STOPPING_PATIENCE: 300 # Effectively disabled
   OPTIMIZER:
     LR: 0.0004239
+    WEIGHT_DECAY: 0.01
 
   SCHEDULER:
     ENABLE: True
