@@ -64,6 +64,8 @@ TRAIN:
     HINT_LOSS_WEIGHT: 1.0
     HIDDEN_LOSS_WEIGHT: 0.0 # disabled for grokking (and because of GRU and LayerNorm)
   MAX_EPOCHS: 10000 # Increased for grokking
+  CHECKPOINT_MONITOR: "val/loss/ws_800"
+  CHECKPOINT_MONITOR_MODE: "min"
   BATCH_SIZE: 512
 
   ENABLE: True

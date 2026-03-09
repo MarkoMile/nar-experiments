@@ -68,14 +68,15 @@ def train(model, datamodule, cfg, specs, seed=42, checkpoint_dir=None, enable_wa
         wandblogger = None
 
 
-    # Determine the monitor metric dynamcially
+    # Determine the monitor metric dynamically
     val_nickname = datamodule.get_val_loader_nickname(0)
-    monitor_metric = f"val/graph_f1/{val_nickname}"
+    monitor_metric = cfg.TRAIN.CHECKPOINT_MONITOR.format(val_nickname=val_nickname)
+    monitor_mode = cfg.TRAIN.CHECKPOINT_MONITOR_MODE
 
     callbacks = []
     # checkpointing
     if checkpoint_dir is not None:
-        ckpt_cbk = pl.callbacks.ModelCheckpoint(dirpath=os.path.join(cfg.DATA.ROOT, "checkpoints", str(cfg.ALGORITHM), cfg.RUN_NAME), monitor=monitor_metric, mode="max", filename=f'seed{seed}-{{epoch}}-{{step}}', save_top_k=1, save_last=False)
+        ckpt_cbk = pl.callbacks.ModelCheckpoint(dirpath=os.path.join(cfg.DATA.ROOT, "checkpoints", str(cfg.ALGORITHM), cfg.RUN_NAME), monitor=monitor_metric, mode=monitor_mode, filename=f'seed{seed}-{{epoch}}-{{step}}', save_top_k=1, save_last=False)
         callbacks.append(ckpt_cbk)
         
         periodic_ckpt_cbk = pl.callbacks.ModelCheckpoint(
@@ -90,7 +91,7 @@ def train(model, datamodule, cfg, specs, seed=42, checkpoint_dir=None, enable_wa
         ckpt_cbk = None
 
     # early stopping
-    early_stop_cbk = pl.callbacks.EarlyStopping(monitor=monitor_metric, patience=cfg.TRAIN.EARLY_STOPPING_PATIENCE, mode="max")
+    early_stop_cbk = pl.callbacks.EarlyStopping(monitor=monitor_metric, patience=cfg.TRAIN.EARLY_STOPPING_PATIENCE, mode=monitor_mode)
     callbacks.append(early_stop_cbk)
 
     # profiling callback
@@ -145,15 +146,16 @@ def train(model, datamodule, cfg, specs, seed=42, checkpoint_dir=None, enable_wa
             wandblogger.experiment.log_artifact(artifact)
 
     # Load best model
-    if cfg.TRAIN.LOAD_CHECKPOINT is None and cfg.TRAIN.ENABLE:
-        if ckpt_cbk and ckpt_cbk.best_model_path:
-            logger.info(f"Best model path: {ckpt_cbk.best_model_path}")
-            model = SALSACLRSModel.load_from_checkpoint(ckpt_cbk.best_model_path)
-        else:
-            logger.warning("No best model found. Testing with current weights.")
+    # if cfg.TRAIN.LOAD_CHECKPOINT is None and cfg.TRAIN.ENABLE:
+    #     if ckpt_cbk and ckpt_cbk.best_model_path:
+    #         logger.info(f"Best model path: {ckpt_cbk.best_model_path}")
+    #         model = SALSACLRSModel.load_from_checkpoint(ckpt_cbk.best_model_path)
+    #     else:
+    #         logger.warning("No best model found. Testing with current weights.")
 
-    # Test
-    logger.info("Testing best model...")
+    # # Test
+    # logger.info("Testing best model...")
+    logger.info("Testing final model...")
     results = trainer.test(model, datamodule=datamodule)
 
     # Log results
