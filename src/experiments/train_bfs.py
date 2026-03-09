@@ -217,12 +217,12 @@ if __name__ == '__main__':
     )
 
     # Monkeypatch: force persistent_workers=False (required when num_workers=0, e.g. on Kaggle)
-    _orig_dataloader = datamodule.dataloader
-    def _patched_dataloader(dataset, **kwargs):
-        kwargs["persistent_workers"] = False
-        return _orig_dataloader(dataset, **kwargs)
-    datamodule.dataloader = _patched_dataloader
-
+    if cfg.TRAIN.NUM_WORKERS == 0:
+        _orig_dataloader = datamodule.dataloader
+        def _patched_dataloader(dataset, **kwargs):
+            kwargs["persistent_workers"] = False
+            return _orig_dataloader(dataset, **kwargs)
+        datamodule.dataloader = _patched_dataloader
     datamodule.val_dataloader()
     model = SALSACLRSModel(specs=train_ds.specs, cfg=cfg)
 
