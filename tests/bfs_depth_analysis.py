@@ -20,6 +20,11 @@ import argparse
 import torch
 import numpy as np
 from collections import defaultdict
+from loguru import logger
+
+# Configure loguru to suppress DEBUG messages
+logger.remove()
+logger.add(sys.stderr, level="INFO")
 
 # Add project root so absolute imports work
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
@@ -47,6 +52,22 @@ GRAPH_CONFIGS = {
     "er_800": {
         "graph_generator": "er",
         "graph_generator_kwargs": {"p_range": [0.008, 0.025], "n": 800},
+    },
+    "delaunay_800": {
+        "graph_generator": "delaunay",
+        "graph_generator_kwargs": {"n": 800},
+    },
+    "ws_1600": {
+        "graph_generator": "ws",
+        "graph_generator_kwargs": {"p_range": [0.05, 0.2], "k": [4, 6, 8], "n": 1600},
+    },
+    "er_1600": {
+        "graph_generator": "er",
+        "graph_generator_kwargs": {"p_range": [0.0046, 0.014], "n": 1600},
+    },
+    "delaunay_1600": {
+        "graph_generator": "delaunay",
+        "graph_generator_kwargs": {"n": 1600},
     },
 }
 
