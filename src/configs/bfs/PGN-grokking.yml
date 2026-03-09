@@ -57,6 +57,7 @@ DATA:
       - { "n": 800 }
 
 TRAIN:
+  GRADIENT_CLIP_VAL: 0.5
   LOSS:
     OUTPUT_LOSS_WEIGHT: 1.0
     HINT_LOSS_WEIGHT: 1.0

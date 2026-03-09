@@ -28,6 +28,7 @@ DATA:
     GENERATOR_PARAMS: [{ "n": [4, 7, 11, 13, 16], "p_range": [0.17, 0.52] }]
 
 TRAIN:
+  GRADIENT_CLIP_VAL: 1.0
   LOSS:
     OUTPUT_LOSS_WEIGHT: 1.0
     HINT_LOSS_WEIGHT: 0.0
