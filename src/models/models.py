@@ -179,6 +179,8 @@ class Encoder(nn.Module):
             if key == "randomness":
                 continue
             logger.debug(f"Encoding {key}")
+            if key not in self.encoder:
+                continue
             encoding = self.encoder[key](batch[key])
             # check of nan
             if torch.isnan(encoding).any():
@@ -545,8 +547,10 @@ class EncodeProcessDecode(torch.nn.Module):
                 # True Scheduled Sampling: Choose Autoregressive over GT with probability `dropout_prob`
                 dropout_prob = self.cfg.MODEL.TEACHER_FORCING.HINT_DROPOUT
                 if dropout_prob > 0.0 and self.training:
-                    # Mask: 1 means use GT, 0 means use AR
-                    mask = (torch.rand(encoded_hint_gt.shape[0], 1, device=encoded_hint_gt.device) > dropout_prob).float()
+                    # Graph-level mask: sample once per graph, apply to all nodes in that graph
+                    num_graphs = batch.batch.max().item() + 1
+                    graph_mask = (torch.rand(num_graphs, 1, device=encoded_hint_gt.device) > dropout_prob).float()
+                    mask = graph_mask[batch.batch]  # Broadcast back to node level
                     encoded_hint = encoded_hint_gt * mask + encoded_hint_ar * (1.0 - mask)
                 else:
                     encoded_hint = encoded_hint_gt
@@ -554,7 +558,10 @@ class EncodeProcessDecode(torch.nn.Module):
                 # Only Teacher Forcing: Zero out hints with probability `dropout_prob`
                 dropout_prob = self.cfg.MODEL.TEACHER_FORCING.HINT_DROPOUT
                 if dropout_prob > 0.0 and self.training:
-                    mask = (torch.rand(encoded_hint_gt.shape[0], 1, device=encoded_hint_gt.device) > dropout_prob).float()
+                    # Graph-level mask: sample once per graph, apply to all nodes in that graph
+                    num_graphs = batch.batch.max().item() + 1
+                    graph_mask = (torch.rand(num_graphs, 1, device=encoded_hint_gt.device) > dropout_prob).float()
+                    mask = graph_mask[batch.batch]  # Broadcast back to node level
                     # Do NOT scale when zeroing out either, to match evaluation distribution
                     encoded_hint = encoded_hint_gt * mask
                 else:
@@ -594,7 +601,9 @@ class EncodeProcessDecode(torch.nn.Module):
                 # Mask output
                 mask = output_mask(batch, step)   
                 if output is None:
-                    output = {k: output_step[k]*mask[k] for k in output_step}
+                    output = {k: torch.zeros_like(output_step[k]) for k in output_step}
+                    for k in output_step:
+                        output[k][mask[k]] = output_step[k][mask[k]]
                 else:
                     for k in output_step:
                         output[k][mask[k]] = output_step[k][mask[k]]
