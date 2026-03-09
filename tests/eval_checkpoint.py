@@ -15,7 +15,6 @@ import lightning.pytorch as pl
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from src.models.module import SALSACLRSModel
-from src.utils.config import load_cfg
 from src.utils.graph_generation import get_dataset
 from salsaclrs import SALSACLRSDataModule
 from loguru import logger
@@ -92,7 +91,6 @@ def format_results_table(results):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--cfg", type=str, required=True, help="Path to config file")
     parser.add_argument("--ckpt", type=str, required=True, help="Path to checkpoint")
     parser.add_argument("--seed", type=int, default=42, help="Random seed")
     parser.add_argument("--num-workers", type=int, default=4, help="Number of dataloader workers")
@@ -104,16 +102,17 @@ def main():
     logger.remove()
     logger.add(sys.stderr, level="INFO")
 
-    cfg = load_cfg(args.cfg)
-
     # Ensure precision is set right
     torch.set_float32_matmul_precision('medium')
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     logger.info(f"Using device: {device}")
 
-    # Load Model
+    # Load Model (this naturally restores its saved hparams, like cfg and specs)
     logger.info(f"Loading checkpoint {args.ckpt}")
-    model = SALSACLRSModel.load_from_checkpoint(args.ckpt, map_location=device, cfg=cfg)
+    model = SALSACLRSModel.load_from_checkpoint(args.ckpt, map_location=device)
+    
+    # Get cfg directly from the loaded model
+    cfg = model.cfg
 
     # Load Data
     logger.info("Loading test datasets...")

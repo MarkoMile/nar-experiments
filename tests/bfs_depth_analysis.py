@@ -30,7 +30,6 @@ logger.add(sys.stderr, level="INFO")
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from src.models.module import SALSACLRSModel
-from src.utils.config import load_cfg
 from src.utils.graph_generation import get_dataset  # triggers torch.load monkeypatch
 
 from salsaclrs import SALSACLRSDataset, SALSACLRSDataModule
@@ -221,7 +220,6 @@ def print_report(name, results):
 
 def main():
     parser = argparse.ArgumentParser(description="BFS depth analysis")
-    parser.add_argument("--cfg", type=str, required=True, help="Path to config YAML")
     parser.add_argument("--ckpt", type=str, required=True, help="Path to model checkpoint")
     parser.add_argument("--num-samples", type=int, default=32, help="Graphs per config")
     parser.add_argument("--batch-size", type=int, default=1, help="Inference batch size")
@@ -229,7 +227,6 @@ def main():
     args = parser.parse_args()
 
     # --- Config & device ---
-    cfg = load_cfg(args.cfg)
     if args.device == "auto":
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     else:
@@ -239,6 +236,7 @@ def main():
     # --- Load model ---
     print(f"Loading checkpoint: {args.ckpt}")
     model = SALSACLRSModel.load_from_checkpoint(args.ckpt, map_location=device)
+    cfg = model.cfg
     model.eval()
     model.to(device)
 
