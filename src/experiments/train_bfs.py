@@ -3,6 +3,7 @@
 import os
 import sys
 import csv
+import time
 import torch
 from loguru import logger
 import lightning.pytorch as pl
@@ -21,6 +22,42 @@ from salsaclrs import SALSACLRSDataModule
 
 logger.remove()
 logger.add(sys.stderr, level="INFO")
+
+class EpochProfilingCallback(pl.Callback):
+    def __init__(self, every_n_epochs=100):
+        super().__init__()
+        self.every_n_epochs = every_n_epochs
+        self.start_time = 0.0
+        self.epoch_times = []
+        self.batch_counts = []
+
+    def on_train_epoch_start(self, trainer, pl_module):
+        self.start_time = time.time()
+
+    def on_train_epoch_end(self, trainer, pl_module):
+        epoch_time = time.time() - self.start_time
+        self.epoch_times.append(epoch_time)
+        self.batch_counts.append(trainer.num_training_batches)
+
+        if (trainer.current_epoch + 1) % self.every_n_epochs == 0:
+            avg_time = sum(self.epoch_times) / len(self.epoch_times)
+            total_time = sum(self.epoch_times)
+            total_batches = sum(self.batch_counts)
+            it_s = total_batches / total_time if total_time > 0 else 0
+            
+            # Log to stdout via loguru
+            logger.info(f"Epoch {trainer.current_epoch + 1} Profiling: Avg time/epoch: {avg_time:.2f}s | it/s: {it_s:.2f}")
+            
+            # Log to wandb if available
+            if trainer.logger and isinstance(trainer.logger, pl.loggers.WandbLogger):
+                trainer.logger.experiment.log({
+                    "profiling/time_per_epoch": avg_time,
+                    "profiling/it_per_s": it_s,
+                    "epoch": trainer.current_epoch
+                })
+                
+            self.epoch_times.clear()
+            self.batch_counts.clear()
 
 def train(model, datamodule, cfg, specs, seed=42, checkpoint_dir=None, enable_wandb=False, enable_progress_bar=False):
     if enable_wandb:
@@ -53,6 +90,9 @@ def train(model, datamodule, cfg, specs, seed=42, checkpoint_dir=None, enable_wa
     # early stopping
     early_stop_cbk = pl.callbacks.EarlyStopping(monitor=monitor_metric, patience=cfg.TRAIN.EARLY_STOPPING_PATIENCE, mode="max")
     callbacks.append(early_stop_cbk)
+
+    # profiling callback
+    callbacks.append(EpochProfilingCallback(every_n_epochs=100))
 
     if enable_progress_bar:
         from lightning.pytorch.callbacks import TQDMProgressBar
