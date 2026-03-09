@@ -493,23 +493,27 @@ class EncodeProcessDecode(torch.nn.Module):
         noise_std = self.cfg.MODEL.LATENT_NOISE_STD
         
         use_teacher_forcing = self.cfg.MODEL.TEACHER_FORCING.ENABLE and self.training
-        use_autoregressive = self.cfg.MODEL.AUTOREGRESSIVE.ENABLE and (not use_teacher_forcing)
+        use_autoregressive = self.cfg.MODEL.AUTOREGRESSIVE.ENABLE
         
         for step in range(max_len):
             # 1. Inject hints (Teacher Forcing or Autoregressive)
+            encoded_hint_gt = None
+            encoded_hint_ar = None
+            
             if use_teacher_forcing:
                 if step == 0:
-                    encoded_hint = torch.zeros_like(hidden)
+                    encoded_hint_gt = torch.zeros_like(hidden)
                 else:
-                    encoded_hint = self.hint_encoder(batch, step - 1)
-                    if encoded_hint is None:
-                        encoded_hint = torch.zeros_like(hidden)
-            elif use_autoregressive:
+                    encoded_hint_gt = self.hint_encoder(batch, step - 1)
+                    if encoded_hint_gt is None:
+                        encoded_hint_gt = torch.zeros_like(hidden)
+            
+            if use_autoregressive:
                 if step == 0:
-                    encoded_hint = torch.zeros_like(hidden)
+                    encoded_hint_ar = torch.zeros_like(hidden)
                 else:
                     prev_hints = hints[-1]
-                    encoded_hint = None
+                    encoded_hint_ar = None
                     for key in self.hint_encoder.encoder.keys():
                         if key not in prev_hints:
                             continue
@@ -519,7 +523,8 @@ class EncodeProcessDecode(torch.nn.Module):
                         raw_pred = prev_hints[key]
                         
                         if type_ == 'categorical' or type_ == 'mask_one':
-                            soft_pred = torch.softmax(raw_pred, dim=-1)
+                            # The decoder outputs log_softmax, so we just exp() to get probabilities
+                            soft_pred = torch.exp(raw_pred)
                         elif type_ == 'mask':
                             soft_pred = torch.sigmoid(raw_pred)
                         else: # scalar
@@ -527,25 +532,38 @@ class EncodeProcessDecode(torch.nn.Module):
                         
                         # Re-encode soft_pred back into hidden dimension
                         key_encoding = self.hint_encoder.encoder[key](soft_pred)
-                        if encoded_hint is None:
-                            encoded_hint = key_encoding
+                        if encoded_hint_ar is None:
+                            encoded_hint_ar = key_encoding
                         else:
-                            encoded_hint += key_encoding
+                            encoded_hint_ar += key_encoding
                             
-                    if encoded_hint is None:
-                        encoded_hint = torch.zeros_like(hidden)
+                    if encoded_hint_ar is None:
+                        encoded_hint_ar = torch.zeros_like(hidden)
 
-            if use_teacher_forcing or use_autoregressive:
-                        
-                # Hint Dropout (Scheduled Sampling)
+            encoded_hint = None
+            if use_teacher_forcing and use_autoregressive:
+                # True Scheduled Sampling: Choose Autoregressive over GT with probability `dropout_prob`
                 dropout_prob = self.cfg.MODEL.TEACHER_FORCING.HINT_DROPOUT
                 if dropout_prob > 0.0 and self.training:
-                    # Randomly zero out the hint embedding vector with probability `dropout_prob`
-                    # We use a single mask per graph node (N, 1) to drop the entire hint embedding
-                    mask = (torch.rand(encoded_hint.shape[0], 1, device=encoded_hint.device) > dropout_prob).float()
-                    # Scale according to standard inverted dropout to maintain expected sum
-                    encoded_hint = encoded_hint * mask / (1.0 - dropout_prob)
-                    
+                    # Mask: 1 means use GT, 0 means use AR
+                    mask = (torch.rand(encoded_hint_gt.shape[0], 1, device=encoded_hint_gt.device) > dropout_prob).float()
+                    encoded_hint = encoded_hint_gt * mask + encoded_hint_ar * (1.0 - mask)
+                else:
+                    encoded_hint = encoded_hint_gt
+            elif use_teacher_forcing:
+                # Only Teacher Forcing: Zero out hints with probability `dropout_prob`
+                dropout_prob = self.cfg.MODEL.TEACHER_FORCING.HINT_DROPOUT
+                if dropout_prob > 0.0 and self.training:
+                    mask = (torch.rand(encoded_hint_gt.shape[0], 1, device=encoded_hint_gt.device) > dropout_prob).float()
+                    # Do NOT scale when zeroing out either, to match evaluation distribution
+                    encoded_hint = encoded_hint_gt * mask
+                else:
+                    encoded_hint = encoded_hint_gt
+            elif use_autoregressive:
+                # Only Autoregressive
+                encoded_hint = encoded_hint_ar
+
+            if encoded_hint is not None:
                 hidden = hidden + encoded_hint
 
             # 2. Inject latent Gaussian noise during training to prevent hidden state drift
