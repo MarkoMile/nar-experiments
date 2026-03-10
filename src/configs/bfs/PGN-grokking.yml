@@ -29,7 +29,7 @@ DATA:
       - { "n": [11, 13, 16, 20], "p_range": [0.05, 0.2], "k": [4,6,8] }
       - { "n": [4, 7, 11, 13, 16] }
   VAL:
-    NUM_SAMPLES: 5
+    NUM_SAMPLES: 15
     GRAPH_GENERATOR: ["er", "er", "er", "ws", "ws", "ws", "delaunay", "delaunay", "delaunay"]
     NICKNAME: ["er_16", "er_80", "er_800", "ws_16", "ws_80", "ws_800", "delaunay_16", "delaunay_80", "delaunay_800"]
     GENERATOR_PARAMS: 
@@ -43,7 +43,7 @@ DATA:
       - { "n": 80 }
       - { "n": 800 }
   TEST:
-    NUM_SAMPLES: 5
+    NUM_SAMPLES: 15
     GRAPH_GENERATOR: ["er", "er", "er", "ws", "ws", "ws", "delaunay", "delaunay", "delaunay"]
     NICKNAME: ["er_16", "er_80", "er_800", "ws_16", "ws_80", "ws_800", "delaunay_16", "delaunay_80", "delaunay_800"]
     GENERATOR_PARAMS:
