@@ -125,6 +125,37 @@ def train(model, datamodule, cfg, specs, seed=42, checkpoint_dir=None, enable_wa
 
     # Train
     if cfg.TRAIN.ENABLE:
+        logger.info("PRE-COLLATING DATASET INTO VRAM/RAM...")
+        from torch_geometric.data import Batch
+        import random
+        
+        # 1. Extract all raw graphs
+        train_ds = datamodule.train_dataloader().dataset
+        all_graphs = [train_ds[i] for i in range(len(train_ds))]
+        
+        # 2. Chunk them 
+        batch_size = cfg.TRAIN.BATCH_SIZE
+        static_batches = []
+        for i in range(0, len(all_graphs), batch_size):
+            chunk = all_graphs[i:i + batch_size]
+            # 3. Perform the heavy CPU shifting math exactly ONCE
+            collated = Batch.from_data_list(chunk)
+            static_batches.append(collated.pin_memory()) 
+            
+        logger.info(f"Created {len(static_batches)} static Super-Batches.")
+
+        # 4. Create a dummy DataLoader that just yields our pre-made batches
+        class StaticLoader:
+            def __iter__(self):
+                # Shuffle the static batches to maintain SGD noise across epochs
+                random.shuffle(static_batches)
+                return iter(static_batches)
+            def __len__(self):
+                return len(static_batches)
+
+        # 5. Overwrite the datamodule's train loader
+        datamodule.train_dataloader = lambda: StaticLoader()
+
         try:
             try:
                 logger.info("Starting training...")

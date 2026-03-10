@@ -39,6 +39,30 @@ def benchmark_compile(compile_mode: str, cfg_path: str, num_batches: int = 50):
             test_batch_size=cfg.TEST.BATCH_SIZE
         )
         datamodule.setup('fit')
+        
+        print("PRE-COLLATING DATASET INTO VRAM/RAM...", end="", flush=True)
+        from torch_geometric.data import Batch
+        import random
+        
+        all_graphs = [train_ds[i] for i in range(len(train_ds))]
+        batch_size = cfg.TRAIN.BATCH_SIZE
+        static_batches = []
+        for i in range(0, len(all_graphs), batch_size):
+            chunk = all_graphs[i:i + batch_size]
+            collated = Batch.from_data_list(chunk)
+            static_batches.append(collated.pin_memory()) 
+            
+        print(f" Created {len(static_batches)} static Super-Batches.")
+
+        class StaticLoader:
+            def __iter__(self):
+                random.shuffle(static_batches)
+                return iter(static_batches)
+            def __len__(self):
+                return len(static_batches)
+
+        datamodule.train_dataloader = lambda: StaticLoader()
+        
         dl = datamodule.train_dataloader()
         dl_iter = iter(dl)
         print(" Done.")
