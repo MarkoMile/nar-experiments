@@ -468,9 +468,9 @@ class EncodeProcessDecode(torch.nn.Module):
         if self.cfg.MODEL.GRU.ENABLE:
             self.gru = torch.nn.GRUCell(self.cfg.MODEL.HIDDEN_DIM, self.cfg.MODEL.HIDDEN_DIM)
 
-        self.processor = torch.compile(self.processor, dynamic=True)
-        if self.cfg.MODEL.GRU.ENABLE:
-            self.gru = torch.compile(self.gru, dynamic=True)
+        # self.processor = torch.compile(self.processor, dynamic=True)
+        # if self.cfg.MODEL.GRU.ENABLE:
+        #     self.gru = torch.compile(self.gru, dynamic=True)
         decoder_input = self.cfg.MODEL.HIDDEN_DIM*3 if self.cfg.MODEL.DECODER_USE_LAST_HIDDEN else self.cfg.MODEL.HIDDEN_DIM*2
         self.decoder = Decoder(specs, decoder_input, no_hint=self.cfg.TRAIN.LOSS.HINT_LOSS_WEIGHT == 0.0)
         logger.debug(f"Decoder: {self.cfg.TRAIN.LOSS.HINT_LOSS_WEIGHT == 0.0}")
