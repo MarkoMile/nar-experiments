@@ -22,7 +22,7 @@ MODEL:
 
 DATA:
   TRAIN:
-    NUM_SAMPLES: [16667, 16667, 16666]
+    NUM_SAMPLES: [5000, 5000, 5000]
     GRAPH_GENERATOR: ["er", "ws", "delaunay"]
     GENERATOR_PARAMS: 
       - { "n": [4, 7, 11, 13, 16], "p_range": [0.17, 0.52] }
