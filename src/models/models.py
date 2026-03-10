@@ -328,7 +328,8 @@ class EdgeMaskDecoder(BaseEdgeDecoder):
         super().__init__(input_dim, hidden_dim)
 
     def forward(self, hiddens, edge_index, **kwargs):
-        out = super().forward(hiddens, edge_index).sigmoid().squeeze(-1)
+        out = super().forward(hiddens, edge_index).squeeze(-1)
+        out = torch.clamp(out, min=-50, max=50)
         return out
     
 class NodePointerDecoder(BaseEdgeDecoder):
@@ -362,7 +363,7 @@ class GraphMaskDecoder(GraphBaseDecoder):
 
     def forward(self, x, batch_assignment, **kwargs):
         out = super().forward(x, batch_assignment)
-        out = out.sigmoid()
+        out = torch.clamp(out, min=-50, max=50)
         return out
 
 class GraphCategoricalDecoder(GraphBaseDecoder):
