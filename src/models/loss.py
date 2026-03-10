@@ -59,6 +59,7 @@ class CLRSLoss(torch.nn.Module):
             # check of nan
             if torch.isnan(hints[key]).any():
                 logger.warning(f"NaN in {key} hint")
+                raise NaNException(f"NaN in {key} hint")
             stage, loc, type_, cat_dim = self.specs[key]
             if key in batch.edge_attrs():
                 mask = torch.arange(batch.length.max(), device=device).unsqueeze(0) <= final_edge_idx.unsqueeze(1)
