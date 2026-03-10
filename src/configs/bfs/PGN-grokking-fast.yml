@@ -1,0 +1,90 @@
+RUN_NAME: 'PGN-hints'
+ALGORITHM: 'bfs'
+MODEL:
+  DECODER_USE_LAST_HIDDEN: True
+  PROCESSOR_USE_LAST_HIDDEN: True
+  HIDDEN_DIM: 256
+  PROCESSOR:
+    NAME: "PGN"
+    RESIDUAL: False
+    KWARGS: [{"aggr": "max"}]
+    LAYERNORM:
+      ENABLE: True
+      MODE: "node"
+  LATENT_NOISE_STD: 0.015
+  TEACHER_FORCING:
+    ENABLE: True
+    HINT_DROPOUT: 0.4
+  AUTOREGRESSIVE:
+    ENABLE: True
+  GRU:
+    ENABLE: True
+
+DATA:
+  TRAIN:
+    NUM_SAMPLES: [16667, 16667, 16666]
+    GRAPH_GENERATOR: ["er", "ws", "delaunay"]
+    GENERATOR_PARAMS: 
+      - { "n": [4, 7, 11, 13, 16], "p_range": [0.17, 0.52] }
+      - { "n": [11, 13, 16, 20], "k": [4, 6, 8], "p_range": [0.05, 0.2] }
+      - { "n": [4, 7, 11, 13, 16] }
+  VAL:
+    NUM_SAMPLES: 15
+    GRAPH_GENERATOR: ["er", "er", "er", "ws", "ws", "ws", "delaunay", "delaunay", "delaunay"]
+    NICKNAME: ["er_16", "er_80", "er_800", "ws_16", "ws_80", "ws_800", "delaunay_16", "delaunay_80", "delaunay_800"]
+    GENERATOR_PARAMS: 
+      - { "p_range": [0.173, 0.52], "n": 16 }
+      - { "p_range": [0.054, 0.164], "n": 80 }
+      - { "p_range": [0.008, 0.025], "n": 800 }
+      - { "p_range": [0.05, 0.2], "k": [4, 6, 8], "n": 16 }
+      - { "p_range": [0.05, 0.2], "k": [4, 6, 8], "n": 80 }
+      - { "p_range": [0.05, 0.2], "k": [4, 6, 8], "n": 800 }
+      - { "n": 16 }
+      - { "n": 80 }
+      - { "n": 800 }
+  TEST:
+    NUM_SAMPLES: 15
+    GRAPH_GENERATOR: ["er", "er", "er", "ws", "ws", "ws", "delaunay", "delaunay", "delaunay"]
+    NICKNAME: ["er_16", "er_80", "er_800", "ws_16", "ws_80", "ws_800", "delaunay_16", "delaunay_80", "delaunay_800"]
+    GENERATOR_PARAMS:
+      - { "p_range": [0.173, 0.52], "n": 16 }
+      - { "p_range": [0.054, 0.164], "n": 80 }
+      - { "p_range": [0.008, 0.025], "n": 800 }
+      - { "p_range": [0.05, 0.2], "k": [4, 6, 8], "n": 16 }
+      - { "p_range": [0.05, 0.2], "k": [4, 6, 8], "n": 80 }
+      - { "p_range": [0.05, 0.2], "k": [4, 6, 8], "n": 800 }
+      - { "n": 16 }
+      - { "n": 80 }
+      - { "n": 800 }
+
+TRAIN:
+  PRECISION: "bf16-mixed"
+  GRADIENT_CLIP_VAL: 0.1
+  LOSS:
+    OUTPUT_LOSS_WEIGHT: 1.0
+    HINT_LOSS_WEIGHT: 1.0
+    HIDDEN_LOSS_WEIGHT: 0.0
+  MAX_EPOCHS: 10000
+  CHECKPOINT_MONITOR: "val/loss/ws_800"
+  CHECKPOINT_MONITOR_MODE: "min"
+  BATCH_SIZE: 2048
+
+  ENABLE: True
+  NUM_WORKERS: 16
+  EARLY_STOPPING_PATIENCE: 10000
+  OPTIMIZER:
+    LR: 0.0004239
+    WEIGHT_DECAY: 0.09
+
+  SCHEDULER:
+    ENABLE: False
+    NAME: "ReduceLROnPlateau"
+    PARAMS: [{ "mode": "min", "factor": 0.5, "patience": 50 }] 
+
+TEST:
+  BATCH_SIZE: 15
+
+LOGGING:
+  WANDB:
+    PROJECT: "nar-experiments"
+    GROUP: "PGN"
