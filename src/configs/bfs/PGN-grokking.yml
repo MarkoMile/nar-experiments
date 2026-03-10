@@ -81,7 +81,7 @@ TRAIN:
     PARAMS: [{ "mode": "min", "factor": 0.5, "patience": 50 }] 
 
 TEST:
-  BATCH_SIZE: 8
+  BATCH_SIZE: 15
 
 LOGGING:
   WANDB:
