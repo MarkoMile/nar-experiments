@@ -46,6 +46,17 @@ def benchmark_compile(compile_mode: str, cfg_path: str, num_batches: int = 50):
         model.train()
         
         optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4)
+
+        # Mock lightning trainer and log to prevent crashes during raw PyTorch loop
+        class MockTrainer:
+            def __init__(self, optimizer):
+                self.optimizers = [optimizer]
+                self.global_step = 1
+
+        model.trainer = MockTrainer(optimizer)
+        model.log = lambda *args, **kwargs: None
+        model.global_step = 1
+
         print(" Done.")
 
         # Warmup (5 batches to trigger compilations if enabled)
