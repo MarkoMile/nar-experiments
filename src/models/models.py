@@ -265,6 +265,7 @@ class NodeBaseDecoder(nn.Module):
 
     def forward(self, x, *args, **kwargs):
         x = self.lin(x)
+        x = torch.clamp(x, min=-50, max=50)
         return x
 
 class NodeScalarDecoder(NodeBaseDecoder):
@@ -318,7 +319,9 @@ class BaseEdgeDecoder(nn.Module):
     def forward(self, hiddens, edge_index):
         zs = self.source_lin(hiddens) # N x H
         zt = self.target_lin(hiddens) # N x H
-        return (zs[edge_index[0]] * zt[edge_index[1]]).sum(dim=-1) / (self.hidden_dim ** 0.5)
+        out = (zs[edge_index[0]] * zt[edge_index[1]]).sum(dim=-1) / (self.hidden_dim ** 0.5)
+        out = torch.clamp(out, min=-50, max=50)
+        return out
     
 class EdgeMaskDecoder(BaseEdgeDecoder):
     def __init__(self, input_dim, hidden_dim=128):
@@ -350,6 +353,7 @@ class GraphBaseDecoder(nn.Module):
     def forward(self, x, batch_assignment, **kwargs):
         x = self.lin(x)
         out = global_mean_pool(x, batch_assignment)
+        out = torch.clamp(out, min=-50, max=50)
         return out.squeeze(-1)
     
 class GraphMaskDecoder(GraphBaseDecoder):
