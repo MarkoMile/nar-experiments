@@ -17,7 +17,7 @@ from src.utils.utils import NaNException
 
 class PGN(pyg_nn.MessagePassing):
     """Adapted from https://github.com/google-deepmind/clrs/blob/64e016998f14305f94cf3f6d19ac9d7edc39a185/clrs/_src/processors.py#L330"""
-    def __init__(self, in_channels, out_channels, aggr, mid_act=None, activation=nn.ReLU()):
+    def __init__(self, in_channels, out_channels, aggr, mid_act=None, activation=nn.ReLU(), compile_mode="none"):
         super(PGN, self).__init__(aggr=aggr)
         logger.info(f"PGN: in_channels: {in_channels}, out_channels: {out_channels}")
         self.in_channels = in_channels
@@ -43,6 +43,13 @@ class PGN(pyg_nn.MessagePassing):
         # Output MLP
         self.o1 = nn.Linear(in_channels, out_channels) # skip connection
         self.o2 = nn.Linear(self.mid_channels, out_channels)
+
+        if compile_mode == "surgical":
+            self.msg_mlp = torch.compile(self.msg_mlp, dynamic=True)
+            self.m_1 = torch.compile(self.m_1, dynamic=True)
+            self.m_2 = torch.compile(self.m_2, dynamic=True)
+            self.o1 = torch.compile(self.o1, dynamic=True)
+            self.o2 = torch.compile(self.o2, dynamic=True)
 
     def forward(self, x, edge_index, edge_weight=None):
         out = self.propagate(edge_index, x=x, edge_weight=edge_weight)
@@ -80,7 +87,7 @@ def _get_processor(name):
     else:
         raise ValueError(f"Unknown processor {name}")
 
-def _gin_module(in_channels, out_channels, eps=0, train_eps=False, layers=2, dropout=0.0, use_bn=False, aggr="add"):
+def _gin_module(in_channels, out_channels, eps=0, train_eps=False, layers=2, dropout=0.0, use_bn=False, aggr="add", **kwargs):
     mlp = nn.Sequential(
         nn.Linear(in_channels, out_channels),
     )
@@ -98,13 +105,18 @@ def _gin_module(in_channels, out_channels, eps=0, train_eps=False, layers=2, dro
     return pyg_nn.GINConv(mlp, eps, train_eps, aggr=aggr)
 
 class Processor(nn.Module):
-    def __init__(self, cfg, has_randomness=False):
+    def __init__(self, cfg, has_randomness=False, compile_mode="none"):
         super().__init__()
         self.cfg = cfg        
         processor_input = self.cfg.MODEL.HIDDEN_DIM*3 if self.cfg.MODEL.PROCESSOR_USE_LAST_HIDDEN else self.cfg.MODEL.HIDDEN_DIM*2
         if has_randomness:
             processor_input += 1
-        self.core = _get_processor(self.cfg.MODEL.PROCESSOR.NAME)(in_channels=processor_input, out_channels=self.cfg.MODEL.HIDDEN_DIM, **self.cfg.MODEL.PROCESSOR.KWARGS[0])
+            
+        kwargs = self.cfg.MODEL.PROCESSOR.KWARGS[0].copy()
+        if self.cfg.MODEL.PROCESSOR.NAME == "PGN":
+            kwargs["compile_mode"] = compile_mode
+            
+        self.core = _get_processor(self.cfg.MODEL.PROCESSOR.NAME)(in_channels=processor_input, out_channels=self.cfg.MODEL.HIDDEN_DIM, **kwargs)
         if self.cfg.MODEL.PROCESSOR.LAYERNORM.ENABLE:
             self.norm = pyg_nn.LayerNorm(self.cfg.MODEL.HIDDEN_DIM, mode=self.cfg.MODEL.PROCESSOR.LAYERNORM.MODE)
         
@@ -451,12 +463,12 @@ def stack_hints(hints):
     return {k: torch.stack([hint[k] for hint in hints], dim=-1) for k in hints[0]} if hints else {}
 
 class EncodeProcessDecode(torch.nn.Module):
-    def __init__(self, specs, cfg):
+    def __init__(self, specs, cfg, compile_mode="none"):
         super().__init__()
         self.cfg = cfg
         self.specs = specs
         self.has_randomness = 'randomness' in specs
-        self.processor = Processor(cfg, self.has_randomness)
+        self.processor = Processor(cfg, self.has_randomness, compile_mode=compile_mode)
         self.encoder = Encoder(specs, self.cfg.MODEL.HIDDEN_DIM)
         if self.cfg.MODEL.TEACHER_FORCING.ENABLE or self.cfg.MODEL.AUTOREGRESSIVE.ENABLE:
             self.hint_encoder = HintEncoder(specs, self.cfg.MODEL.HIDDEN_DIM)
@@ -465,11 +477,15 @@ class EncodeProcessDecode(torch.nn.Module):
         if self.cfg.MODEL.GRU.ENABLE:
             self.gru = torch.nn.GRUCell(self.cfg.MODEL.HIDDEN_DIM, self.cfg.MODEL.HIDDEN_DIM)
 
-        # SURGICAL COMPILE: Wrap only the heavy math bottlenecks
-        # mode="reduce-overhead" minimizes CPU-to-GPU launch times for recurrent loops
-        self.processor = torch.compile(self.processor, dynamic=True)
-        if self.cfg.MODEL.GRU.ENABLE:
-            self.gru = torch.compile(self.gru, dynamic=True)
+        if compile_mode == "full":
+            # Original functionality
+            self.processor = torch.compile(self.processor, dynamic=True)
+            if self.cfg.MODEL.GRU.ENABLE:
+                self.gru = torch.compile(self.gru, dynamic=True)
+        elif compile_mode == "surgical":
+            # Only compile the math-heavy recurrence, leave processor outer-shell uncompiled
+            if self.cfg.MODEL.GRU.ENABLE:
+                self.gru = torch.compile(self.gru, dynamic=True)
 
         decoder_input = self.cfg.MODEL.HIDDEN_DIM*3 if self.cfg.MODEL.DECODER_USE_LAST_HIDDEN else self.cfg.MODEL.HIDDEN_DIM*2
         self.decoder = Decoder(specs, decoder_input, no_hint=self.cfg.TRAIN.LOSS.HINT_LOSS_WEIGHT == 0.0)

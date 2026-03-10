@@ -12,26 +12,13 @@ from src.utils.config import load_cfg
 from salsaclrs import SALSACLRSDataModule
 from src.utils.graph_generation import get_dataset
 
-def benchmark_compile(enable_compile: bool, cfg_path: str, num_batches: int = 50):
+def benchmark_compile(compile_mode: str, cfg_path: str, num_batches: int = 50):
     print(f"\n{'='*50}")
-    print(f"Benchmarking with torch.compile = {enable_compile}")
+    print(f"Benchmarking with compile_mode = '{compile_mode}'")
     print(f"{'='*50}")
 
     # Load config and override compilation setting
     cfg = load_cfg(cfg_path)
-    # Monkey patch the logic in models.py to respect this local setting during instantiation
-    # Because models.py directly compiles in __init__, we'll use a hack or just rely on 
-    # the environment variable / global state if possible. 
-    # Actually, we can just patch torch.compile globally for this script if we want to disable it
-    
-    _orig_compile = torch.compile
-    
-    if not enable_compile:
-        # Mock torch.compile to just return the original function/module
-        torch.compile = lambda x, **kwargs: x
-        print("-> torch.compile is MOCKED (disabled)")
-    else:
-        print("-> torch.compile is ACTIVE")
 
     try:
         # Load datasets (using train set for benchmarking)
@@ -53,8 +40,8 @@ def benchmark_compile(enable_compile: bool, cfg_path: str, num_batches: int = 50
         dl_iter = iter(dl)
         print(" Done.")
 
-        print("Initializing model...", end="", flush=True)
-        model = SALSACLRSModel(specs=train_ds.specs, cfg=cfg)
+        print(f"Initializing model with compile_mode '{compile_mode}'...", end="", flush=True)
+        model = SALSACLRSModel(specs=train_ds.specs, cfg=cfg, compile_mode=compile_mode)
         model = model.to('cuda')
         model.train()
         
@@ -70,10 +57,7 @@ def benchmark_compile(enable_compile: bool, cfg_path: str, num_batches: int = 50
             loss.backward()
             optimizer.step()
             
-        if enable_compile:
-             print("Warmup complete. Recompilations should be mostly done.")
-        else:
-             print("Warmup complete.")
+        print("Warmup complete. Recompilations should be mostly done.")
 
         # Benchmark
         print(f"Benchmarking {num_batches} batches...")
@@ -105,8 +89,6 @@ def benchmark_compile(enable_compile: bool, cfg_path: str, num_batches: int = 50
         print(f"{'='*50}\n")
         
     finally:
-        # Restore original torch.compile
-        torch.compile = _orig_compile
         # Cleanup memory
         del model, optimizer, train_ds, datamodule
         gc.collect()
@@ -121,7 +103,8 @@ if __name__ == "__main__":
     # Ensure TF32 is enabled
     torch.set_float32_matmul_precision('high')
 
-    # Run Benchmark (First without compile, then with compile)
-    benchmark_compile(enable_compile=False, cfg_path=args.cfg)
-    benchmark_compile(enable_compile=True, cfg_path=args.cfg)
+    # Run Benchmark across all three modes
+    benchmark_compile(compile_mode="none", cfg_path=args.cfg)
+    benchmark_compile(compile_mode="full", cfg_path=args.cfg)
+    benchmark_compile(compile_mode="surgical", cfg_path=args.cfg)
     

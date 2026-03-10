@@ -104,11 +104,11 @@ def calc_metrics(key, preds, batch, type_):
         raise NotImplementedError(f"Unknown metric type {type_}")     
 
 class SALSACLRSModel(pl.LightningModule):
-    def __init__(self, specs, cfg):
+    def __init__(self, specs, cfg, compile_mode="none"):
         super().__init__()
         self.hparams.update(cfg)
         self.cfg = cfg
-        self.model = EncodeProcessDecode(specs, cfg)
+        self.model = EncodeProcessDecode(specs, cfg, compile_mode=compile_mode)
         self.loss = CLRSLoss(specs, cfg.TRAIN.LOSS.HIDDEN_LOSS_TYPE)
         self.step_output_cache = defaultdict(list)
         self.current_loader_idx = 0
