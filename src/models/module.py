@@ -134,8 +134,10 @@ class SALSACLRSModel(pl.LightningModule):
 
         # Log total weight norm to track grokking phase transition
         # (weights inflate during memorization, deflate when weight decay kicks in)
-        total_norm = torch.linalg.vector_norm(torch.stack([torch.linalg.vector_norm(p, 2) for p in self.parameters() if p.requires_grad]), 2)
-        self.log('train/weight_norm', total_norm, batch_size=batch.num_graphs)
+        if self.global_step % 50 == 0:
+            with torch.no_grad(): # Ensure this doesn't build a computation graph!
+                total_norm = torch.linalg.vector_norm(torch.stack([torch.linalg.vector_norm(p, 2) for p in self.parameters() if p.requires_grad]), 2)
+                self.log('train/weight_norm', total_norm, batch_size=batch.num_graphs)
 
         return loss
 

@@ -23,6 +23,9 @@ from salsaclrs import SALSACLRSDataModule
 logger.remove()
 logger.add(sys.stderr, level="INFO")
 
+os.environ["OMP_NUM_THREADS"] = "4" 
+torch.set_num_threads(4)
+
 class EpochProfilingCallback(pl.Callback):
     def __init__(self, every_n_epochs=100):
         super().__init__()
@@ -82,7 +85,7 @@ def train(model, datamodule, cfg, specs, seed=42, checkpoint_dir=None, enable_wa
         periodic_ckpt_cbk = pl.callbacks.ModelCheckpoint(
             dirpath=os.path.join(cfg.DATA.ROOT, "checkpoints", str(cfg.ALGORITHM), cfg.RUN_NAME),
             filename=f'seed{seed}-periodic-{{epoch:03d}}',
-            every_n_epochs=50,
+            every_n_epochs=500,
             save_top_k=-1,
             save_last=False,
         )
@@ -107,7 +110,8 @@ def train(model, datamodule, cfg, specs, seed=42, checkpoint_dir=None, enable_wa
         max_epochs=cfg.TRAIN.MAX_EPOCHS,
         logger=wandblogger,
         accelerator="auto",
-        log_every_n_steps=5,
+        log_every_n_steps=50,
+        check_val_every_n_epoch=25,
         gradient_clip_val=cfg.TRAIN.GRADIENT_CLIP_VAL,
         reload_dataloaders_every_n_epochs=datamodule.reload_every_n_epochs,
         precision=cfg.TRAIN.PRECISION,
