@@ -3,7 +3,7 @@ ALGORITHM: 'bfs'
 MODEL:
   DECODER_USE_LAST_HIDDEN: True
   PROCESSOR_USE_LAST_HIDDEN: True
-  HIDDEN_DIM: 512 # increased for grokking
+  HIDDEN_DIM: 256 # increased for grokking
   PROCESSOR:
     NAME: "PGN"
     RESIDUAL: False
@@ -58,6 +58,7 @@ DATA:
       - { "n": 800 }
 
 TRAIN:
+  PRECISION: "bf16-mixed"
   GRADIENT_CLIP_VAL: 0.1
   LOSS:
     OUTPUT_LOSS_WEIGHT: 1.0
