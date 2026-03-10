@@ -74,7 +74,7 @@ TRAIN:
   EARLY_STOPPING_PATIENCE: 10000 # Effectively disabled
   OPTIMIZER:
     LR: 0.0004239
-    WEIGHT_DECAY: 0.1 # higher for grokking
+    WEIGHT_DECAY: 0.06
 
   SCHEDULER:
     ENABLE: False # disabled for grokking
