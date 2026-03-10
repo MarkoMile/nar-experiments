@@ -58,7 +58,7 @@ DATA:
       - { "n": 800 }
 
 TRAIN:
-  PRECISION: "bf16-mixed"
+  PRECISION: "16-mixed"
   GRADIENT_CLIP_VAL: 0.1
   LOSS:
     OUTPUT_LOSS_WEIGHT: 1.0
