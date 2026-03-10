@@ -61,32 +61,30 @@ def benchmark_compile(compile_mode: str, cfg_path: str, num_batches: int = 50):
 
         print(" Done.")
 
+        # Grab ONE batch and put it on the GPU
+        static_batch = next(dl_iter).to('cuda')
+
         # Warmup (5 batches to trigger compilations if enabled)
         print("Starting warmup (5 batches)...")
         for i in range(5):
-            batch = next(dl_iter).to('cuda')
             optimizer.zero_grad()
-            loss = model.training_step(batch, batch_idx=i)
+            with torch.autocast(device_type='cuda', dtype=torch.float16):
+                loss = model.training_step(static_batch, batch_idx=i)
             loss.backward()
             optimizer.step()
             
         print("Warmup complete. Recompilations should be mostly done.")
 
         # Benchmark
-        print(f"Benchmarking {num_batches} batches...")
+        print(f"Benchmarking PURE COMPUTE for {num_batches} batches...")
         torch.cuda.synchronize()
         start_time = time.time()
         
         for i in range(num_batches):
-            try:
-                batch = next(dl_iter)
-            except StopIteration:
-                dl_iter = iter(dl)
-                batch = next(dl_iter)
-                
-            batch = batch.to('cuda')
             optimizer.zero_grad()
-            loss = model.training_step(batch, batch_idx=i)
+            with torch.autocast(device_type='cuda', dtype=torch.float16):
+                # Feed the EXACT SAME batch every time to bypass CPU generation
+                loss = model.training_step(static_batch, batch_idx=i) 
             loss.backward()
             optimizer.step()
             
