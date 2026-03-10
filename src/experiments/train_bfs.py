@@ -23,8 +23,8 @@ from salsaclrs import SALSACLRSDataModule
 logger.remove()
 logger.add(sys.stderr, level="INFO")
 
-os.environ["OMP_NUM_THREADS"] = "4" 
-torch.set_num_threads(4)
+os.environ["OMP_NUM_THREADS"] = "1" 
+torch.set_num_threads(1)
 
 class EpochProfilingCallback(pl.Callback):
     def __init__(self, every_n_epochs=100):
