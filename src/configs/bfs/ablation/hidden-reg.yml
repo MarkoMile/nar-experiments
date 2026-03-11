@@ -1,9 +1,9 @@
-RUN_NAME: "PGN"
+RUN_NAME: "ablation-hidden-reg"
 ALGORITHM: "bfs"
 MODEL:
   DECODER_USE_LAST_HIDDEN: True
   PROCESSOR_USE_LAST_HIDDEN: True
-  HIDDEN_DIM: 128
+  HIDDEN_DIM: 256
   PROCESSOR:
     NAME: "PGN"
     RESIDUAL: False
@@ -11,18 +11,18 @@ MODEL:
     LAYERNORM:
       ENABLE: True
       MODE: "node"
-  LATENT_NOISE_STD: 0.015 # σ for Gaussian noise injected into hidden state during training
+  LATENT_NOISE_STD: 0.015
   TEACHER_FORCING:
     ENABLE: True
     HINT_DROPOUT: 0.4
   AUTOREGRESSIVE:
-    ENABLE: False
+    ENABLE: True
   GRU:
     ENABLE: True
 
 DATA:
   TRAIN:
-    NUM_SAMPLES: [3334, 3333, 3333]
+    NUM_SAMPLES: [16667, 16667, 16666]
     GRAPH_GENERATOR: ["er", "ws", "delaunay"]
     GENERATOR_PARAMS:
       - { "n": [4, 7, 11, 13, 16], "p_range": [0.17, 0.52] }
@@ -58,33 +58,26 @@ DATA:
       - { "n": 800 }
 
 TRAIN:
-  PRECISION: "32-true" # use TF32 ; test "highest" (fp32 mode) if this doesn't look good
-  GRADIENT_CLIP_VAL: 0.5 # avoid large spikes (maybe go to 1.0 if this is too much)
+  PRECISION: "16-mixed"
+  GRADIENT_CLIP_VAL: 0.1
   LOSS:
     OUTPUT_LOSS_WEIGHT: 1.0
     HINT_LOSS_WEIGHT: 1.0
-    HIDDEN_LOSS_WEIGHT: 0.0 # disabled for grokking (and because of GRU and LayerNorm)
-  MAX_EPOCHS: 5000 # Increased for grokking
+    HIDDEN_LOSS_WEIGHT: 0.01
+  MAX_EPOCHS: 2000
   CHECKPOINT_MONITOR: "val/loss/ws_800"
   CHECKPOINT_MONITOR_MODE: "min"
-  BATCH_SIZE: 512
-
+  BATCH_SIZE: 2048
   ENABLE: True
   NUM_WORKERS: 5
-  EARLY_STOPPING_PATIENCE: 5000 # Effectively disabled
+  EARLY_STOPPING_PATIENCE: 2000
   OPTIMIZER:
     LR: 0.0004239
-    WEIGHT_DECAY: 0.09 # higher for grokking
-
+    WEIGHT_DECAY: 0.09
   SCHEDULER:
-    ENABLE: False # disabled for grokking
-    NAME: "ReduceLROnPlateau"
-    PARAMS: [{ "mode": "min", "factor": 0.5, "patience": 50 }]
-
-TEST:
-  BATCH_SIZE: 15
+    ENABLE: False
 
 LOGGING:
   WANDB:
     PROJECT: "nar-experiments-finetuning"
-    GROUP: "PGN"
+    GROUP: "grok-sweep"
