@@ -207,11 +207,15 @@ class SALSACLRSModel(pl.LightningModule):
         out = {"optimizer": optimizer}
         if self.cfg.TRAIN.SCHEDULER.ENABLE:
             try:
-                scheduler = getattr(torch.optim.lr_scheduler, self.cfg.TRAIN.SCHEDULER.NAME)(optimizer, **self.cfg.TRAIN.SCHEDULER.PARAMS[0])
-                monitor_metric = "val/outloss/0"
+                scheduler_params = dict(self.cfg.TRAIN.SCHEDULER.PARAMS[0])
+                if self.cfg.TRAIN.SCHEDULER.NAME == "ReduceLROnPlateau":
+                    scheduler_params["mode"] = self.cfg.TRAIN.CHECKPOINT_MONITOR_MODE
+                scheduler = getattr(torch.optim.lr_scheduler, self.cfg.TRAIN.SCHEDULER.NAME)(optimizer, **scheduler_params)
                 if hasattr(self, 'trainer') and self.trainer is not None and hasattr(self.trainer, 'datamodule') and self.trainer.datamodule is not None:
                     nickname = self.trainer.datamodule.get_val_loader_nickname(0)
-                    monitor_metric = f"val/outloss/{nickname}"
+                    monitor_metric = self.cfg.TRAIN.CHECKPOINT_MONITOR.format(val_nickname=nickname)
+                else:
+                    monitor_metric = self.cfg.TRAIN.CHECKPOINT_MONITOR.format(val_nickname="0")
 
                 out["lr_scheduler"] = {
                     "scheduler": scheduler,
