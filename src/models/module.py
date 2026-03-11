@@ -141,6 +141,16 @@ class SALSACLRSModel(pl.LightningModule):
             with torch.no_grad(): # Ensure this doesn't build a computation graph!
                 total_norm = torch.linalg.vector_norm(torch.stack([torch.linalg.vector_norm(p.double(), 2) for p in self.parameters() if p.requires_grad]), 2).float()
                 self.log('train/weight_norm', total_norm, batch_size=batch.num_graphs)
+                # ELR = η / ‖θ‖  (Lyle et al.) — the quantity that drives grokking
+                lr = self.trainer.optimizers[0].param_groups[0]['lr']
+                self.log('train/effective_lr', lr / total_norm, batch_size=batch.num_graphs)
+                # LayerNorm scale magnitude — tracks whether γ grows unbounded (scale decay hypothesis)
+                norm_scales = [p.data.abs().mean() for name, p in self.named_parameters() if 'norm' in name and 'weight' in name]
+                if norm_scales:
+                    self.log('train/layernorm_scale_mean', torch.stack(norm_scales).mean(), batch_size=batch.num_graphs)
+                # Gradient norm (pre-clip) — reveals slingshot instability events
+                grad_norm = torch.linalg.vector_norm(torch.stack([torch.linalg.vector_norm(p.grad.double(), 2) for p in self.parameters() if p.grad is not None]), 2).float()
+                self.log('train/grad_norm', grad_norm, batch_size=batch.num_graphs)
 
         return loss
 
