@@ -18,6 +18,7 @@ from src.utils.utils import stack_dicts
 
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import ReduceLROnPlateau
+import copy
 
 
 def calc_metrics(key, preds, batch, type_):
@@ -112,6 +113,7 @@ class SALSACLRSModel(pl.LightningModule):
         self.current_loader_idx = 0
         self.specs = specs
         self.save_hyperparameters()
+        self._initial_norms = {}  # populated on first training step for NaP
 
     def forward(self, batch):
         return self.model(batch)        
@@ -200,11 +202,34 @@ class SALSACLRSModel(pl.LightningModule):
                 self.log(f"test/{key}/{self.trainer.datamodule.get_test_loader_nickname(dataloader_idx)}", metrics[key], add_dataloader_idx=False)
         self.step_output_cache.clear()  
 
+    def _get_param_groups(self):
+        """Split parameters into main params and LayerNorm scale params for scale decay."""
+        if not self.cfg.TRAIN.WEIGHT_PROJECTION.SCALE_DECAY:
+            return self.parameters()
+
+        norm_scale_params = []
+        other_params = []
+        for name, param in self.named_parameters():
+            if not param.requires_grad:
+                continue
+            # PyG LayerNorm uses .weight, torch LayerNorm uses .weight
+            if 'norm' in name and 'weight' in name:
+                norm_scale_params.append(param)
+            else:
+                other_params.append(param)
+
+        return [
+            {"params": other_params},
+            {"params": norm_scale_params, "weight_decay": self.cfg.TRAIN.OPTIMIZER.WEIGHT_DECAY * self.cfg.TRAIN.WEIGHT_PROJECTION.SCALE_DECAY_FACTOR},
+        ]
+
     def configure_optimizers(self):
+        param_groups = self._get_param_groups()
+
         if self.cfg.TRAIN.OPTIMIZER.NAME == "adam":
-            optimizer = torch.optim.Adam(self.parameters(), lr=self.cfg.TRAIN.OPTIMIZER.LR)
+            optimizer = torch.optim.Adam(param_groups, lr=self.cfg.TRAIN.OPTIMIZER.LR)
         elif self.cfg.TRAIN.OPTIMIZER.NAME == "adamw":
-            optimizer = torch.optim.AdamW(self.parameters(), lr=self.cfg.TRAIN.OPTIMIZER.LR, weight_decay=self.cfg.TRAIN.OPTIMIZER.WEIGHT_DECAY)
+            optimizer = torch.optim.AdamW(param_groups, lr=self.cfg.TRAIN.OPTIMIZER.LR, weight_decay=self.cfg.TRAIN.OPTIMIZER.WEIGHT_DECAY)
         else:
             raise NotImplementedError(f"Optimizer {self.cfg.TRAIN.OPTIMIZER.NAME} not implemented")
         out = {"optimizer": optimizer}
@@ -213,13 +238,44 @@ class SALSACLRSModel(pl.LightningModule):
                 scheduler_params = dict(self.cfg.TRAIN.SCHEDULER.PARAMS[0])
                 scheduler = getattr(torch.optim.lr_scheduler, self.cfg.TRAIN.SCHEDULER.NAME)(optimizer, **scheduler_params)
 
-                out["lr_scheduler"] = {
+                interval = getattr(self.cfg.TRAIN.SCHEDULER, 'INTERVAL', 'epoch')
+                lr_scheduler_config = {
                     "scheduler": scheduler,
-                    "monitor": self.cfg.TRAIN.SCHEDULER.MONITOR,
-                    "interval": "epoch",
+                    "interval": interval,
                     "frequency": 1,
                 }
+                # Only add monitor for ReduceLROnPlateau (it needs it)
+                if self.cfg.TRAIN.SCHEDULER.NAME == "ReduceLROnPlateau":
+                    lr_scheduler_config["monitor"] = self.cfg.TRAIN.SCHEDULER.MONITOR
+                out["lr_scheduler"] = lr_scheduler_config
             except AttributeError:
                 raise NotImplementedError(f"Scheduler {self.cfg.TRAIN.SCHEDULER.NAME} not implemented")
 
         return out
+
+    # ---- Normalize-and-Project (NaP) weight projection ----
+
+    def _store_initial_norms(self):
+        """Record Frobenius norm of each ≥2D parameter at init (called once)."""
+        for name, param in self.named_parameters():
+            if param.requires_grad and param.dim() >= 2:
+                self._initial_norms[name] = param.data.norm(p='fro').clone()
+
+    def _project_weights(self):
+        """Rescale each ≥2D weight matrix to its initial Frobenius norm."""
+        with torch.no_grad():
+            for name, param in self.named_parameters():
+                if name in self._initial_norms:
+                    current_norm = param.data.norm(p='fro')
+                    if current_norm > 0:
+                        param.data.mul_(self._initial_norms[name] / current_norm)
+
+    def on_train_batch_end(self, outputs, batch, batch_idx):
+        """Apply NaP weight projection after optimizer step."""
+        if not self.cfg.TRAIN.WEIGHT_PROJECTION.ENABLE:
+            return
+        # Store initial norms on first step
+        if not self._initial_norms:
+            self._store_initial_norms()
+        if self.global_step % self.cfg.TRAIN.WEIGHT_PROJECTION.EVERY_N_STEPS == 0:
+            self._project_weights()

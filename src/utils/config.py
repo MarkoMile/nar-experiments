@@ -65,6 +65,14 @@ _C.TRAIN.SCHEDULER.NAME = "ReduceLROnPlateau"
 _C.TRAIN.SCHEDULER.ENABLE = False
 _C.TRAIN.SCHEDULER.MONITOR = "train/loss"
 _C.TRAIN.SCHEDULER.PARAMS = [{"mode": "min", "factor": 0.1, "patience": 10}]
+_C.TRAIN.SCHEDULER.INTERVAL = "epoch"  # "epoch" or "step"
+
+# Normalize-and-Project (NaP): periodically project weights to initial Frobenius norm
+_C.TRAIN.WEIGHT_PROJECTION = CN()
+_C.TRAIN.WEIGHT_PROJECTION.ENABLE = False
+_C.TRAIN.WEIGHT_PROJECTION.EVERY_N_STEPS = 1  # project every N optimizer steps
+_C.TRAIN.WEIGHT_PROJECTION.SCALE_DECAY = False  # apply separate weight decay to LayerNorm scale params
+_C.TRAIN.WEIGHT_PROJECTION.SCALE_DECAY_FACTOR = 1.0  # multiplier on WD for LayerNorm scales (1.0 = same as main WD)
 
 _C.TRAIN.LOSS = CN()
 _C.TRAIN.LOSS.OUTPUT_LOSS_WEIGHT = 1.0
