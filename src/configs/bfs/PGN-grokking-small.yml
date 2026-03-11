@@ -79,6 +79,7 @@ TRAIN:
   SCHEDULER:
     ENABLE: True # Enabled to stabilize in late phase
     NAME: "ReduceLROnPlateau"
+    MONITOR: "train/loss"
     PARAMS: [{ "mode": "min", "factor": 0.8, "patience": 250 }]
 
 TEST:
