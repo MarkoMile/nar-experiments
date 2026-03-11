@@ -63,7 +63,7 @@ TRAIN:
     HINT_LOSS_WEIGHT: 1.0
     HIDDEN_LOSS_WEIGHT: 0.01
   MAX_EPOCHS: 10 #small number of epochs for testing
-  CHECKPOINT_MONITOR: "val/graph_f1/{val_nickname}"
+  CHECKPOINT_MONITOR: "val/graph_accuracy/{val_nickname}"
   CHECKPOINT_MONITOR_MODE: "max"
   BATCH_SIZE: 8
 

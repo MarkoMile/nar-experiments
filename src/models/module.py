@@ -10,7 +10,7 @@ import torch.nn.functional as F
 import torch
 from collections import defaultdict
 from loguru import logger
-from sklearn.metrics import f1_score, accuracy_score, precision_score, recall_score
+from sklearn.metrics import accuracy_score, precision_score, recall_score
 
 from src.models.models import EncodeProcessDecode
 from src.models.loss import CLRSLoss
@@ -54,12 +54,11 @@ def calc_metrics(key, preds, batch, type_):
         }
 
     elif type_ == "mask":
-        """Node Acc., Node F1, Graph Acc."""
+        """Node Acc., Graph Acc."""
         if truth.sum() < 0.05 * truth.numel():
             logger.warning(f"MASK METRIC: Truth has less than 5% ones: {truth.sum()} / {truth.numel()}")
 
         preds = preds.sigmoid()
-        node_f1 = []
         node_acc = []
         graph_result = []
 
@@ -68,7 +67,6 @@ def calc_metrics(key, preds, batch, type_):
             gpred = (preds[batch.batch == n]>0.5).bool().cpu().numpy()
             gtruth = truth[batch.batch == n].cpu().numpy()
 
-            node_f1.append(f1_score(gtruth, gpred, average='binary'))
             node_acc.append(accuracy_score(gtruth, gpred))
             graph_result.append((gpred == gtruth).all())
 
@@ -76,7 +74,6 @@ def calc_metrics(key, preds, batch, type_):
 
         return {
                 "node_accuracy": node_acc,
-                "node_f1": node_f1,
                 "graph_result": graph_result,
             }
 
@@ -164,7 +161,6 @@ class SALSACLRSModel(pl.LightningModule):
             if m.startswith("graph"):
                 # graph level metrics have to be computed differently
                 metrics["graph_accuracy"] = output[m].float().mean()
-                metrics["graph_f1"] = f1_score(torch.ones_like(output[m]).cpu().numpy(), output[m].cpu().numpy(), average='binary')
             else:
                 metrics[m[:-7]] = output[m].float().mean()
         return metrics

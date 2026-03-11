@@ -33,7 +33,7 @@ def format_results_table(results):
         merged_results.update(d)
 
     # Group metrics by dataset
-    # Metrics are usually named like: "test/graph_f1/ws_800"
+    # Metrics are usually named like: "test/graph_accuracy/ws_800"
     datasets_metrics = {}
     metric_names = set()
 
