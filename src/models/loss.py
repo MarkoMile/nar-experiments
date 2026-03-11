@@ -6,25 +6,29 @@ from src.utils.utils import NaNException
 
 def calculate_loss(mask, truth, pred, edge_index, type_, batch_assignment):
     if type_ == "scalar":
-        return torch.mean(F.mse_loss(pred, truth, reduction='none') * mask)
+        safe_pred = torch.where(mask > 0, pred, truth)
+        # Use simple MSE with double precision to avoid square overflow if outputs are humongous
+        mse = (safe_pred.double() - truth.double()) ** 2
+        return torch.mean(mse.float() * mask)
     elif type_ == "mask":
         # pred is not sigmoided due to autocast issues
-        return torch.mean(F.binary_cross_entropy_with_logits(pred, truth, reduction='none') * mask)
+        safe_pred = torch.where(mask > 0, pred, torch.zeros_like(pred))
+        return torch.mean(F.binary_cross_entropy_with_logits(safe_pred, truth, reduction='none') * mask)
     elif type_ == "mask_one":
         # cross entropy loss, pred is logsoftmaxed
-        logits = truth*pred*mask
+        logits = torch.where((truth > 0) & (mask > 0), truth * pred, torch.zeros_like(pred)) * mask
         return (-torch_scatter.scatter(logits, batch_assignment, dim=0)).mean()
     elif type_ == "categorical":
-        # Per node cross entropy loss, pred is logsoftmaxed
+        # Per node cross entropy loss, pred is logsoftmaxed
         pred = pred.permute(0, 2, 1) # H x C x N -> H x N x C
         categories = pred.shape[-1]
         # repeat mask for each category
         mask = mask.unsqueeze(-1).repeat_interleave(categories, dim=-1) # H x N -> H x N x C
-        logits = truth*pred*mask # (H x) N x C
+        logits = torch.where((truth > 0) & (mask > 0), truth * pred, torch.zeros_like(pred)) * mask # (H x) N x C
         return (-torch.sum(logits, dim=-1)).mean()
     elif type_ == "pointer":
         # pred is logsoftmaxed
-        logits = truth*pred*mask
+        logits = torch.where((truth > 0) & (mask > 0), truth * pred, torch.zeros_like(pred)) * mask
         loss = (-torch_scatter.scatter(logits, edge_index[0], dim=0))
         return loss.mean()
     else:
@@ -36,7 +40,7 @@ class CLRSLoss(torch.nn.Module):
         self.specs = specs
 
         if hidden_loss_type == "l2":
-            self.hidden_loss = lambda x: torch.mean(torch.linalg.norm(x, dim=1))
+            self.hidden_loss = lambda x: torch.mean(torch.linalg.norm(x.double(), dim=1).float())
         else:
             raise NotImplementedError(f"Unknown hidden loss type {hidden_loss_type}")
 

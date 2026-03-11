@@ -295,8 +295,8 @@ class NodeBaseDecoder(nn.Module):
 
     def forward(self, x, *args, **kwargs):
         x = self.lin(x)
-        # x = torch.clamp(x, min=-50, max=50)
-        return x
+        # Prevent any infinite or NaN values from escaping the decoder
+        return torch.nan_to_num(x)
 
 class NodeScalarDecoder(NodeBaseDecoder):
     def __init__(self, input_dim, hidden_dim=128):
@@ -322,7 +322,7 @@ class NodeMaskOneDecoder(NodeBaseDecoder):
         out = super().forward(x) # N x 1
 
         out = torch_scatter.scatter_log_softmax(out, batch_assignment, dim=0)
-        return out
+        return torch.nan_to_num(out)
 
 
 class NodeCategoricalDecoder(NodeBaseDecoder):
@@ -332,7 +332,7 @@ class NodeCategoricalDecoder(NodeBaseDecoder):
     def forward(self, x, batch_assignment, **kwargs):
         out = super().forward(x) # N x C
         out = torch.log_softmax(out, dim=-1)
-        return out
+        return torch.nan_to_num(out)
 
 
 
@@ -347,8 +347,9 @@ class BaseEdgeDecoder(nn.Module):
         self.target_lin = nn.Linear(hidden_dim, hidden_dim)
 
     def forward(self, hiddens, edge_index):
-        zs = self.source_lin(hiddens) # N x H
-        zt = self.target_lin(hiddens) # N x H
+        # Prevent grokking float bounds overflow by using float64 internally
+        zs = self.source_lin(hiddens).double() # N x H
+        zt = self.target_lin(hiddens).double() # N x H
         out = (zs[edge_index[0]] * zt[edge_index[1]]).sum(dim=-1) / (self.hidden_dim ** 0.5)
         # out = torch.clamp(out, min=-50, max=50)
         return out
@@ -358,9 +359,9 @@ class EdgeMaskDecoder(BaseEdgeDecoder):
         super().__init__(input_dim, hidden_dim)
 
     def forward(self, hiddens, edge_index, **kwargs):
-        out = super().forward(hiddens, edge_index).squeeze(-1)
+        out = super().forward(hiddens, edge_index).float().squeeze(-1)
         # out = torch.clamp(out, min=-50, max=50)
-        return out
+        return torch.nan_to_num(out)
     
 class NodePointerDecoder(BaseEdgeDecoder):
     def __init__(self, input_dim, hidden_dim=128):
@@ -370,7 +371,7 @@ class NodePointerDecoder(BaseEdgeDecoder):
         z =  super().forward(hiddens, edge_index) # E
         # per node outgoing softmax
         z = torch_scatter.scatter_log_softmax(z, edge_index[0], dim=0)
-        return z
+        return torch.nan_to_num(z.float())
 
 #### Graph decoders
 
@@ -385,7 +386,7 @@ class GraphBaseDecoder(nn.Module):
         x = self.lin(x)
         out = global_mean_pool(x, batch_assignment)
         # out = torch.clamp(out, min=-50, max=50)
-        return out.squeeze(-1)
+        return torch.nan_to_num(out.squeeze(-1))
     
 class GraphMaskDecoder(GraphBaseDecoder):
     def __init__(self, input_dim, hidden_dim=128):
@@ -394,7 +395,7 @@ class GraphMaskDecoder(GraphBaseDecoder):
     def forward(self, x, batch_assignment, **kwargs):
         out = super().forward(x, batch_assignment)
         # out = torch.clamp(out, min=-50, max=50)
-        return out
+        return torch.nan_to_num(out)
 
 class GraphCategoricalDecoder(GraphBaseDecoder):
     def __init__(self, input_dim, hidden_dim=128):
@@ -403,7 +404,7 @@ class GraphCategoricalDecoder(GraphBaseDecoder):
     def forward(self, x, batch_assignment, **kwargs):
         out = super().forward(x, batch_assignment)
         out = torch.log_softmax(out, dim=-1)
-        return out
+        return torch.nan_to_num(out)
     
 
 _DECODER_MAP = {

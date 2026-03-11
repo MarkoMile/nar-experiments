@@ -90,8 +90,9 @@ def calc_metrics(key, preds, batch, type_):
             gpred = preds[n]
             gtruth = truth[n]
 
-            mse.append(((gpred - gtruth)**2).mean())
-            graph_result.append((gpred.round() == gtruth).float())
+            # Use double to avoid float32 squaring overflow during evaluation
+            mse.append(((gpred.double() - gtruth.double())**2).mean().float())
+            graph_result.append((gpred.round() == gtruth).all().float() if gpred.dim() > 0 else (gpred.round() == gtruth).float())
 
         mse = torch.tensor(mse)
         graph_result = torch.tensor(graph_result)
@@ -136,7 +137,7 @@ class SALSACLRSModel(pl.LightningModule):
         # (weights inflate during memorization, deflate when weight decay kicks in)
         if self.global_step % 50 == 0:
             with torch.no_grad(): # Ensure this doesn't build a computation graph!
-                total_norm = torch.linalg.vector_norm(torch.stack([torch.linalg.vector_norm(p, 2) for p in self.parameters() if p.requires_grad]), 2)
+                total_norm = torch.linalg.vector_norm(torch.stack([torch.linalg.vector_norm(p.double(), 2) for p in self.parameters() if p.requires_grad]), 2).float()
                 self.log('train/weight_norm', total_norm, batch_size=batch.num_graphs)
 
         return loss
