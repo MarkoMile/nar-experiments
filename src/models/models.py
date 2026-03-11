@@ -511,6 +511,8 @@ class EncodeProcessDecode(torch.nn.Module):
         self.decoder = Decoder(specs, decoder_input, no_hint=self.cfg.TRAIN.LOSS.HINT_LOSS_WEIGHT == 0.0)
         logger.debug(f"Decoder: {self.cfg.TRAIN.LOSS.HINT_LOSS_WEIGHT == 0.0}")
 
+        self.training_progress = 0.0  # Set by Lightning module; 0 to 1 over training
+
         if not self.processor.has_edge_weight() and not self.processor.has_edge_attr():
             if "A" in specs:
                 logger.warning(f"Processor {self.cfg.MODEL.PROCESSOR.NAME} does neither support edge_weight nor edge_attr, but the algorithm requires edge weights.")
@@ -520,6 +522,13 @@ class EncodeProcessDecode(torch.nn.Module):
         elif self.processor.has_edge_attr():
             self.edge_weight_name = "edge_attr"
         
+    def _get_hint_dropout(self):
+        """Return the current hint dropout probability, accounting for curriculum."""
+        cur = self.cfg.MODEL.TEACHER_FORCING.CURRICULUM
+        if cur.ENABLE:
+            return cur.START_DROPOUT + (cur.END_DROPOUT - cur.START_DROPOUT) * self.training_progress
+        return self.cfg.MODEL.TEACHER_FORCING.HINT_DROPOUT
+
     def process_weights(self, batch):
         if self.edge_weight_name == "edge_attr":
             return batch.weights.unsqueeze(-1).type(torch.float32)
@@ -589,7 +598,7 @@ class EncodeProcessDecode(torch.nn.Module):
             encoded_hint = None
             if use_teacher_forcing and use_autoregressive:
                 # True Scheduled Sampling: Choose Autoregressive over GT with probability `dropout_prob`
-                dropout_prob = self.cfg.MODEL.TEACHER_FORCING.HINT_DROPOUT
+                dropout_prob = self._get_hint_dropout()
                 if dropout_prob > 0.0 and self.training:
                     # Graph-level mask: sample once per graph, apply to all nodes in that graph
                     num_graphs = batch.batch.max().item() + 1
@@ -600,7 +609,7 @@ class EncodeProcessDecode(torch.nn.Module):
                     encoded_hint = encoded_hint_gt
             elif use_teacher_forcing:
                 # Only Teacher Forcing: Zero out hints with probability `dropout_prob`
-                dropout_prob = self.cfg.MODEL.TEACHER_FORCING.HINT_DROPOUT
+                dropout_prob = self._get_hint_dropout()
                 if dropout_prob > 0.0 and self.training:
                     # Graph-level mask: sample once per graph, apply to all nodes in that graph
                     num_graphs = batch.batch.max().item() + 1

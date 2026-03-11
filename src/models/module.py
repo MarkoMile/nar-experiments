@@ -122,6 +122,7 @@ class SALSACLRSModel(pl.LightningModule):
         return loss, outloss, hintloss, hiddenloss
 
     def training_step(self, batch, batch_idx):
+        self.model.training_progress = self.trainer.current_epoch / max(self.trainer.max_epochs - 1, 1)
         output, hints, hidden = self.model(batch)
         loss, outloss, hintloss, hiddenloss = self._loss(batch, output, hints, hidden)
         self.log("train/outloss", outloss, batch_size=batch.num_graphs)
@@ -129,6 +130,8 @@ class SALSACLRSModel(pl.LightningModule):
         self.log("train/hiddenloss", hiddenloss, batch_size=batch.num_graphs)
         self.log("train/loss", loss, batch_size=batch.num_graphs)
         self.log('train/lr', self.trainer.optimizers[0].param_groups[0]['lr'])
+        if self.cfg.MODEL.TEACHER_FORCING.CURRICULUM.ENABLE:
+            self.log('train/hint_dropout', self.model._get_hint_dropout(), batch_size=batch.num_graphs)
 
         # Log total weight norm to track grokking phase transition
         # (weights inflate during memorization, deflate when weight decay kicks in)
