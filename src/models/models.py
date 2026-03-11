@@ -134,6 +134,33 @@ class Processor(nn.Module):
 #################
 # ENCODER
 #################
+
+class NodePointerEncoder(nn.Module):
+    def __init__(self, input_dim, hidden_dim=128):
+        super().__init__()
+        self.hidden_dim = hidden_dim
+        # input_dim is ignored since pointers are just probabilities
+        # We project the aggregated message into the hidden state
+        self.lin = nn.Linear(hidden_dim, hidden_dim)
+
+    def forward(self, probabilities, hidden, edge_index):
+        # probabilities: [E] (either soft probabilities or hard 1-hot)
+        # hidden: [N, H] (current hidden state of nodes)
+        # edge_index: [2, E]
+        
+        # 1. Get the hidden state of the target nodes (the nodes being pointed to)
+        target_hidden = hidden[edge_index[1]] # [E, H]
+        
+        # 2. Weight by the pointer probability
+        weighted_msg = target_hidden * probabilities.unsqueeze(-1) # [E, H]
+        
+        # 3. Aggregate back to the source nodes
+        num_nodes = hidden.size(0)
+        aggregated = torch_scatter.scatter_add(weighted_msg, edge_index[0], dim=0, dim_size=num_nodes) # [N, H]
+        
+        # 4. Project
+        return self.lin(aggregated)
+
 class NodeBaseEncoder(nn.Module):
     def __init__(self, input_dim, hidden_dim=128):
         super().__init__()
@@ -151,6 +178,7 @@ _ENCODER_MAP = {
     ('node', 'scalar'): NodeBaseEncoder,
     ('node', 'mask'): NodeBaseEncoder,
     ('node', 'mask_one'): NodeBaseEncoder,
+    ('node', 'pointer'): NodePointerEncoder,
 }
 
 class Encoder(nn.Module):
@@ -220,35 +248,37 @@ class HintEncoder(nn.Module):
                 
             self.encoder[k] = _ENCODER_MAP[(loc, type_)](input_dim, hidden_dim)
 
-    def forward(self, batch, step):
+    def forward(self, batch, step, current_hidden):
         """Encodes all ground-truth hints for a specific timestep.
         Only encodes node-level hints to sum with the node hidden state.
         """
-        hidden = None
+        encoded_hidden = None
         for key in batch.hints:
             if key not in self.encoder:
                 continue
             
-            # Check if it's a node hint
-            if key not in batch.node_attrs():
-                continue
-                
-            # Ground truth hints are shape [N, MaxSteps] or [N, MaxSteps, C]
-            # We slice the specific step
+            # Check if it's a node hint or edge hint (pointers are node loc but edge shape in hints)
+            _, loc, type_, _ = self.specs[key]
+            
             hint_step = batch[key][:, step]
             
-            encoding = self.encoder[key](hint_step)
+            if type_ == 'pointer':
+                # ground truth pointer is a one-hot vector across edges
+                encoding = self.encoder[key](hint_step, current_hidden, batch.edge_index)
+            else:
+                encoding = self.encoder[key](hint_step)
+                
             # check of nan
             if torch.isnan(encoding).any():
                 logger.warning(f"NaN in encoded hint state for {key}")
                 raise NaNException(f"NaN in encoded hint state for {key}")
                 
-            if hidden is None:
-                hidden = encoding
+            if encoded_hidden is None:
+                encoded_hidden = encoding
             else:
-                hidden += encoding
+                encoded_hidden += encoding
                 
-        return hidden
+        return encoded_hidden
     
 #################
 # DECODER
@@ -517,7 +547,7 @@ class EncodeProcessDecode(torch.nn.Module):
                 if step == 0:
                     encoded_hint_gt = torch.zeros_like(hidden)
                 else:
-                    encoded_hint_gt = self.hint_encoder(batch, step - 1)
+                    encoded_hint_gt = self.hint_encoder(batch, step - 1, hidden)
                     if encoded_hint_gt is None:
                         encoded_hint_gt = torch.zeros_like(hidden)
             
@@ -535,16 +565,18 @@ class EncodeProcessDecode(torch.nn.Module):
                         _, loc, type_, _ = self.specs[key]
                         raw_pred = prev_hints[key]
                         
-                        if type_ == 'categorical' or type_ == 'mask_one':
-                            # The decoder outputs log_softmax, so we just exp() to get probabilities
+                        if type_ == 'pointer':
                             soft_pred = torch.exp(raw_pred)
-                        elif type_ == 'mask':
-                            soft_pred = torch.sigmoid(raw_pred)
-                        else: # scalar
-                            soft_pred = raw_pred
-                        
-                        # Re-encode soft_pred back into hidden dimension
-                        key_encoding = self.hint_encoder.encoder[key](soft_pred)
+                            key_encoding = self.hint_encoder.encoder[key](soft_pred, hidden, batch.edge_index)
+                        else:
+                            if type_ == 'categorical' or type_ == 'mask_one':
+                                soft_pred = torch.exp(raw_pred)
+                            elif type_ == 'mask':
+                                soft_pred = torch.sigmoid(raw_pred)
+                            else: # scalar
+                                soft_pred = raw_pred
+                            key_encoding = self.hint_encoder.encoder[key](soft_pred)
+                            
                         if encoded_hint_ar is None:
                             encoded_hint_ar = key_encoding
                         else:
