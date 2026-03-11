@@ -149,8 +149,10 @@ class SALSACLRSModel(pl.LightningModule):
                 if norm_scales:
                     self.log('train/layernorm_scale_mean', torch.stack(norm_scales).mean(), batch_size=batch.num_graphs)
                 # Gradient norm (pre-clip) — reveals slingshot instability events
-                grad_norm = torch.linalg.vector_norm(torch.stack([torch.linalg.vector_norm(p.grad.double(), 2) for p in self.parameters() if p.grad is not None]), 2).float()
-                self.log('train/grad_norm', grad_norm, batch_size=batch.num_graphs)
+                grad_norms = [torch.linalg.vector_norm(p.grad.double(), 2) for p in self.parameters() if p.grad is not None]
+                if grad_norms:
+                    grad_norm = torch.linalg.vector_norm(torch.stack(grad_norms), 2).float()
+                    self.log('train/grad_norm', grad_norm, batch_size=batch.num_graphs)
 
         return loss
 
