@@ -3,7 +3,7 @@ ALGORITHM: 'bfs'
 MODEL:
   DECODER_USE_LAST_HIDDEN: True
   PROCESSOR_USE_LAST_HIDDEN: True
-  HIDDEN_DIM: 128
+  HIDDEN_DIM: 256
   PROCESSOR:
     NAME: "PGN"
     RESIDUAL: False
@@ -22,7 +22,7 @@ MODEL:
 
 DATA:
   TRAIN:
-    NUM_SAMPLES: [2048, 2048, 2048]
+    NUM_SAMPLES: [16667, 16667, 16666]
     GRAPH_GENERATOR: ["er", "ws", "delaunay"]
     GENERATOR_PARAMS: 
       - { "n": [4, 7, 11, 13, 16], "p_range": [0.17, 0.52] }
@@ -58,8 +58,8 @@ DATA:
       - { "n": 800 }
 
 TRAIN:
-  PRECISION: "bf16-mixed"
-  GRADIENT_CLIP_VAL: None
+  PRECISION: "32-true" # use TF32 ; test "highest" (fp32 mode) if this doesn't look good
+  GRADIENT_CLIP_VAL: 0.1
   LOSS:
     OUTPUT_LOSS_WEIGHT: 1.0
     HINT_LOSS_WEIGHT: 1.0
@@ -67,14 +67,14 @@ TRAIN:
   MAX_EPOCHS: 10000 # Increased for grokking
   CHECKPOINT_MONITOR: "val/loss/ws_800"
   CHECKPOINT_MONITOR_MODE: "min"
-  BATCH_SIZE: 2048
+  BATCH_SIZE: 1024
 
   ENABLE: True
   NUM_WORKERS: 16
   EARLY_STOPPING_PATIENCE: 10000 # Effectively disabled
   OPTIMIZER:
     LR: 0.0004239
-    WEIGHT_DECAY: 0.5
+    WEIGHT_DECAY: 0.09
 
   SCHEDULER:
     ENABLE: False # disabled for grokking
