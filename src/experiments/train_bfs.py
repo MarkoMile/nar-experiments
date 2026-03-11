@@ -62,7 +62,7 @@ class EpochProfilingCallback(pl.Callback):
             self.epoch_times.clear()
             self.batch_counts.clear()
 
-def train(model, datamodule, cfg, specs, seed=42, checkpoint_dir=None, enable_wandb=False, enable_progress_bar=False):
+def train(model, datamodule, cfg, specs, seed=42, checkpoint_dir=None, enable_wandb=False, enable_progress_bar=False, fast_dev_run=False):
     # Enable TF32 for matrix multiplications (massive speedup on Ampere/Ada/Blackwell GPUs)
     torch.set_float32_matmul_precision('high')
     if enable_wandb:
@@ -113,6 +113,7 @@ def train(model, datamodule, cfg, specs, seed=42, checkpoint_dir=None, enable_wa
         log_every_n_steps=3,
         check_val_every_n_epoch=50,
         gradient_clip_val=cfg.TRAIN.GRADIENT_CLIP_VAL,
+        fast_dev_run=fast_dev_run,
         reload_dataloaders_every_n_epochs=datamodule.reload_every_n_epochs,
         precision=cfg.TRAIN.PRECISION,
         enable_progress_bar=enable_progress_bar,
@@ -212,6 +213,7 @@ if __name__ == '__main__':
     parser.add_argument("--hints", action="store_true", help="Use hints.")
     parser.add_argument("--enable-wandb", action="store_true", help="Enable wandb logging")
     parser.add_argument("--enable-progress-bar", action="store_true", help="Enable tqdm progress bars")
+    parser.add_argument("--fast_dev_run", action="store_true", help="Run 1 train, val and test loop")
     args = parser.parse_args()
 
     # set seed
@@ -264,7 +266,7 @@ if __name__ == '__main__':
     model = SALSACLRSModel(specs=train_ds.specs, cfg=cfg)
 
     ckpt_dir = os.path.join(DATA_DIR, "checkpoints")
-    train(model, datamodule, cfg, train_ds.specs, seed = args.seed, checkpoint_dir=ckpt_dir, enable_wandb=args.enable_wandb, enable_progress_bar=args.enable_progress_bar)
+    train(model, datamodule, cfg, train_ds.specs, seed = args.seed, checkpoint_dir=ckpt_dir, enable_wandb=args.enable_wandb, enable_progress_bar=args.enable_progress_bar, fast_dev_run=args.fast_dev_run)
 
     if args.enable_wandb:
         wandb.finish()
