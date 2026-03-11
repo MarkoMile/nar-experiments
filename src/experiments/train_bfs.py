@@ -254,7 +254,9 @@ if __name__ == '__main__':
     # Also enforce pin_memory and persistent_workers when num_workers > 0
     _orig_dataloader = datamodule.dataloader
     def _patched_dataloader(dataset, **kwargs):
-        if cfg.TRAIN.NUM_WORKERS == 0:
+        # salsaclrs overrides num_workers to 0 during testing
+        current_num_workers = kwargs.get("num_workers", cfg.TRAIN.NUM_WORKERS)
+        if current_num_workers == 0:
             kwargs["persistent_workers"] = False
             kwargs["pin_memory"] = False
         else:
