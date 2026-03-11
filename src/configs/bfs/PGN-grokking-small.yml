@@ -67,7 +67,7 @@ TRAIN:
   MAX_EPOCHS: 5000 # Increased for grokking
   CHECKPOINT_MONITOR: "val/loss/ws_800"
   CHECKPOINT_MONITOR_MODE: "min"
-  BATCH_SIZE: 256
+  BATCH_SIZE: 1024
 
   ENABLE: True
   NUM_WORKERS: 5
