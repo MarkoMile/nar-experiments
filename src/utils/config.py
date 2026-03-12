@@ -39,8 +39,13 @@ _C.MODEL.TEACHER_FORCING.CURRICULUM.END_DROPOUT = 0.5
 
 _C.MODEL.AUTOREGRESSIVE = CN()
 _C.MODEL.AUTOREGRESSIVE.ENABLE = False
-_C.MODEL.AUTOREGRESSIVE.POINTER = True  # Whether to autoregress pointer hints (pi_h). False = pointer hints always use TF.
+_C.MODEL.AUTOREGRESSIVE.POINTER = True  # With AR enabled: True = include pi_h in TF+AR paths, False = exclude pi_h from both TF+AR paths.
 _C.MODEL.AUTOREGRESSIVE.POINTER_MODE = "soft"  # "soft" = exp(log_softmax) probs, "hard" = argmax one-hot per source node
+
+# How encoded hints are injected into the processor:
+#   "additive" (default): hidden += encoded_hint before processor (corrupts hidden state)
+#   "concat": hint is concatenated as a separate input channel to the processor (CLRS-30 style)
+_C.MODEL.HINT_INJECTION_MODE = "additive"
 
 # -----------------------------------------------------------------------------
 # Training

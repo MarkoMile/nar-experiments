@@ -105,6 +105,10 @@ class Processor(nn.Module):
         processor_input = self.cfg.MODEL.HIDDEN_DIM*3 if self.cfg.MODEL.PROCESSOR_USE_LAST_HIDDEN else self.cfg.MODEL.HIDDEN_DIM*2
         if has_randomness:
             processor_input += 1
+        # In "concat" mode, the encoded hint is a separate input channel rather than being
+        # added into the hidden state — this prevents AR prediction errors from corrupting hidden.
+        if self.cfg.MODEL.HINT_INJECTION_MODE == "concat":
+            processor_input += self.cfg.MODEL.HIDDEN_DIM
             
         kwargs = self.cfg.MODEL.PROCESSOR.KWARGS[0].copy()
         self.core = _get_processor(self.cfg.MODEL.PROCESSOR.NAME)(in_channels=processor_input, out_channels=self.cfg.MODEL.HIDDEN_DIM, **kwargs)
@@ -113,8 +117,12 @@ class Processor(nn.Module):
         
         self._core_requires_last_hidden = "last_hidden" in signature(self.core.forward).parameters
 
-    def forward(self, input_hidden, hidden, last_hidden, batch_assignment, randomness=None, **kwargs):
+    def forward(self, input_hidden, hidden, last_hidden, batch_assignment, randomness=None, hint=None, **kwargs):
         stacked = stack_hidden(input_hidden, hidden, last_hidden, self.cfg.MODEL.PROCESSOR_USE_LAST_HIDDEN)
+        if self.cfg.MODEL.HINT_INJECTION_MODE == "concat":
+            # Hint is a dedicated input channel — wrong AR predictions don't touch hidden state.
+            hint_input = hint if hint is not None else torch.zeros_like(input_hidden)
+            stacked = torch.cat([stacked, hint_input], dim=-1)
         if randomness is not None:
             stacked = torch.cat((stacked, randomness.unsqueeze(1)), dim=-1)
         if self._core_requires_last_hidden:
@@ -558,36 +566,24 @@ class EncodeProcessDecode(torch.nn.Module):
         
         use_teacher_forcing = self.cfg.MODEL.TEACHER_FORCING.ENABLE and self.training
         use_autoregressive = self.cfg.MODEL.AUTOREGRESSIVE.ENABLE
-        exclude_pointer_ar = use_autoregressive and not self.cfg.MODEL.AUTOREGRESSIVE.POINTER
+        # Fair ablation switch: when POINTER=False, exclude pointer hints from both
+        # AR and TF hint injection paths (not only AR).
+        disable_pointer_hints = use_autoregressive and not self.cfg.MODEL.AUTOREGRESSIVE.POINTER
         
         for step in range(max_len):
             # 1. Inject hints (Teacher Forcing or Autoregressive)
             encoded_hint_gt = None
             encoded_hint_ar = None
-            # When pointer AR is excluded, split TF encoding into pointer-only and non-pointer-only
-            encoded_pointer_gt = None
-            encoded_nonpointer_gt = None
-            
+
             if use_teacher_forcing:
                 if step == 0:
                     encoded_hint_gt = torch.zeros_like(hidden)
-                    if exclude_pointer_ar:
-                        encoded_pointer_gt = torch.zeros_like(hidden)
-                        encoded_nonpointer_gt = torch.zeros_like(hidden)
                 else:
-                    if exclude_pointer_ar:
-                        # Split GT encoding: pointer hints always get TF, non-pointer hints participate in mixing
-                        encoded_pointer_gt = self.hint_encoder(batch, step - 1, hidden, pointer_only=True)
-                        encoded_nonpointer_gt = self.hint_encoder(batch, step - 1, hidden, pointer_only=False)
-                        if encoded_pointer_gt is None:
-                            encoded_pointer_gt = torch.zeros_like(hidden)
-                        if encoded_nonpointer_gt is None:
-                            encoded_nonpointer_gt = torch.zeros_like(hidden)
-                        encoded_hint_gt = encoded_pointer_gt + encoded_nonpointer_gt
-                    else:
-                        encoded_hint_gt = self.hint_encoder(batch, step - 1, hidden)
-                        if encoded_hint_gt is None:
-                            encoded_hint_gt = torch.zeros_like(hidden)
+                    # Fair comparison mode: if pointer AR is disabled, remove pointer hints from TF too.
+                    tf_pointer_only = False if disable_pointer_hints else None
+                    encoded_hint_gt = self.hint_encoder(batch, step - 1, hidden, pointer_only=tf_pointer_only)
+                    if encoded_hint_gt is None:
+                        encoded_hint_gt = torch.zeros_like(hidden)
             
             if use_autoregressive:
                 if step == 0:
@@ -602,8 +598,8 @@ class EncodeProcessDecode(torch.nn.Module):
                         # Detach AR predictions to avoid BPTT through the unrolled loop
                         _, loc, type_, _ = self.specs[key]
                         
-                        # Skip pointer hints when excluded from AR
-                        if exclude_pointer_ar and type_ == 'pointer':
+                        # Skip pointer hints when pointer hints are disabled for this run.
+                        if disable_pointer_hints and type_ == 'pointer':
                             continue
                         
                         raw_pred = prev_hints[key].detach()
@@ -648,11 +644,7 @@ class EncodeProcessDecode(torch.nn.Module):
                     num_graphs = batch.batch.max().item() + 1
                     graph_mask = (torch.rand(num_graphs, 1, device=hidden.device) > dropout_prob).float()
                     mask = graph_mask[batch.batch]  # Broadcast back to node level
-                    if exclude_pointer_ar:
-                        # Pointer hints: always TF. Non-pointer hints: scheduled sampling.
-                        encoded_hint = encoded_pointer_gt + encoded_nonpointer_gt * mask + encoded_hint_ar * (1.0 - mask)
-                    else:
-                        encoded_hint = encoded_hint_gt * mask + encoded_hint_ar * (1.0 - mask)
+                    encoded_hint = encoded_hint_gt * mask + encoded_hint_ar * (1.0 - mask)
                 else:
                     encoded_hint = encoded_hint_gt
             elif use_teacher_forcing:
@@ -671,8 +663,15 @@ class EncodeProcessDecode(torch.nn.Module):
                 # Only Autoregressive (pointer hints excluded if POINTER=False → zero pointer signal)
                 encoded_hint = encoded_hint_ar
 
-            if encoded_hint is not None:
-                hidden = hidden + encoded_hint
+            hint_injection_mode = self.cfg.MODEL.HINT_INJECTION_MODE
+            if hint_injection_mode == "concat":
+                # Hint is passed as a dedicated processor input channel — hidden stays clean.
+                processor_hint = encoded_hint  # may be None; Processor.forward handles that with zeros
+            else:
+                # "additive" (default): inject hint directly into hidden before processor
+                if encoded_hint is not None:
+                    hidden = hidden + encoded_hint
+                processor_hint = None
 
             # 2. Inject latent Gaussian noise during training to prevent hidden state drift
             if self.training and noise_std > 0:
@@ -685,7 +684,7 @@ class EncodeProcessDecode(torch.nn.Module):
                 # SALSA-CLRS default: snapshot current hidden before processor
                 last_hidden = hidden
             for _ in range(self.cfg.MODEL.MSG_PASSING_STEPS):
-                processed = self.processor(input_hidden, hidden, last_hidden, randomness=randomness[:, step] if randomness is not None else None, edge_index=batch.edge_index, batch_assignment=batch.batch, **{self.edge_weight_name: self.process_weights(batch) for _ in range(1) if hasattr(batch, 'weights') })
+                processed = self.processor(input_hidden, hidden, last_hidden, hint=processor_hint, randomness=randomness[:, step] if randomness is not None else None, edge_index=batch.edge_index, batch_assignment=batch.batch, **{self.edge_weight_name: self.process_weights(batch) for _ in range(1) if hasattr(batch, 'weights') })
                 if self.cfg.MODEL.PROCESSOR.RESIDUAL:
                     hidden = self.residual_norm(hidden + processed)
                 else:
