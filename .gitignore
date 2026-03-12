@@ -62,3 +62,4 @@ tests/test_models.py
 # Deprecated experimental scripts
 src/experiments/deprecated/
 notebooks/data/
+.temp/
