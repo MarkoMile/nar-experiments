@@ -14,13 +14,14 @@ MODEL:
       ENABLE: True
       MODE: "node"
   LATENT_NOISE_STD: 0.015
+  MSG_PASSING_STEPS: 1
   TEACHER_FORCING:
     ENABLE: True
     HINT_DROPOUT: 0.4
   AUTOREGRESSIVE:
     ENABLE: True
-    POINTER: True
-    POINTER_MODE: "soft"
+    POINTER: False
+  LAST_HIDDEN_MODE: "current"
   GRU:
     ENABLE: True
 
