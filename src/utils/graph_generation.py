@@ -49,18 +49,18 @@ def patched_create_graph(self, n, weighted, directed, low=0.0, high=1.0, **kwarg
         while True:
             # Generate scale free MultiDiGraph
             G = nx.scale_free_graph(n_val, alpha=alpha, beta=beta, gamma=gamma)
-            # Convert to standard DiGraph to remove parallel edges
-            G = nx.DiGraph(G)
+            # Convert to standard undirected Graph
+            G = nx.Graph(G)
             # Remove self loops
             G.remove_edges_from(nx.selfloop_edges(G))
-            if connected and not nx.is_weakly_connected(G):
+            if connected and not nx.is_connected(G):
                 continue
             mat = nx.to_numpy_array(G)
             break
     elif self._graph_generator == 'gn':
         n_val = self._select_parameter(n)
         # GN graph is always a weakly connected tree inherently
-        G = nx.gn_graph(n_val)
+        G = nx.gn_graph(n_val).to_undirected()
         mat = nx.to_numpy_array(G)
     elif self._graph_generator == 'gnr':
         n_val = self._select_parameter(n)
@@ -68,7 +68,7 @@ def patched_create_graph(self, n, weighted, directed, low=0.0, high=1.0, **kwarg
         if isinstance(p, list):
             p = self._select_parameter(p)
         # GNR graph is always a weakly connected tree inherently
-        G = nx.gnr_graph(n_val, p=p)
+        G = nx.gnr_graph(n_val, p=p).to_undirected()
         mat = nx.to_numpy_array(G)
     elif self._graph_generator is None or self._graph_generator == 'er':
         n_val = self._select_parameter(n)
