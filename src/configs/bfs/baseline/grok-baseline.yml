@@ -96,5 +96,5 @@ TEST:
 
 LOGGING:
   WANDB:
-    PROJECT: "nar-experiments"
+    PROJECT: "nar-experiments-finetuning"
     GROUP: "PGN"
