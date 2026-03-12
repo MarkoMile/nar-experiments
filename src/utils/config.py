@@ -25,6 +25,7 @@ _C.MODEL.PROCESSOR_USE_LAST_HIDDEN = False
 _C.MODEL.LAST_HIDDEN_MODE = "current"  # "current" = set before processor (SALSA-CLRS default), "previous" = carry from previous step's GRU output
 
 _C.MODEL.LATENT_NOISE_STD = 0.0  # Gaussian noise σ injected into hidden state (0.0 = disabled)
+_C.MODEL.EDGE_DECODER_FP64 = True  # Use float64 math inside edge decoders (more stable, much higher memory)
 
 _C.MODEL.GRU = CN()
 _C.MODEL.GRU.ENABLE = False

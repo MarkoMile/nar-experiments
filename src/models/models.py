@@ -356,24 +356,28 @@ class NodeCategoricalDecoder(NodeBaseDecoder):
 #### Edge decoders
 
 class BaseEdgeDecoder(nn.Module):
-    def __init__(self, input_dim, hidden_dim=128):
+    def __init__(self, input_dim, hidden_dim=128, use_fp64=True):
         super().__init__()
         self.hidden_dim = hidden_dim
         self.input_dim = input_dim
+        self.use_fp64 = use_fp64
         self.source_lin = nn.Linear(hidden_dim, hidden_dim)
         self.target_lin = nn.Linear(hidden_dim, hidden_dim)
 
     def forward(self, hiddens, edge_index):
-        # Prevent grokking float bounds overflow by using float64 internally
-        zs = self.source_lin(hiddens).double() # N x H
-        zt = self.target_lin(hiddens).double() # N x H
+        zs = self.source_lin(hiddens) # N x H
+        zt = self.target_lin(hiddens) # N x H
+        # Optional fp64 path improves numerical stability but can be very memory-heavy on large batches.
+        if self.use_fp64:
+            zs = zs.double()
+            zt = zt.double()
         out = (zs[edge_index[0]] * zt[edge_index[1]]).sum(dim=-1) / (self.hidden_dim ** 0.5)
         # out = torch.clamp(out, min=-50, max=50)
         return out
     
 class EdgeMaskDecoder(BaseEdgeDecoder):
-    def __init__(self, input_dim, hidden_dim=128):
-        super().__init__(input_dim, hidden_dim)
+    def __init__(self, input_dim, hidden_dim=128, use_fp64=True):
+        super().__init__(input_dim, hidden_dim, use_fp64=use_fp64)
 
     def forward(self, hiddens, edge_index, **kwargs):
         out = super().forward(hiddens, edge_index).float().squeeze(-1)
@@ -381,8 +385,8 @@ class EdgeMaskDecoder(BaseEdgeDecoder):
         return torch.nan_to_num(out)
     
 class NodePointerDecoder(BaseEdgeDecoder):
-    def __init__(self, input_dim, hidden_dim=128):
-        super().__init__(input_dim, hidden_dim)
+    def __init__(self, input_dim, hidden_dim=128, use_fp64=True):
+        super().__init__(input_dim, hidden_dim, use_fp64=use_fp64)
 
     def forward(self, hiddens, edge_index, **kwargs):
         z =  super().forward(hiddens, edge_index) # E
@@ -438,7 +442,7 @@ _DECODER_MAP = {
 }
     
 class Decoder(nn.Module):
-    def __init__(self, specs, hidden_dim=128, no_hint=False):
+    def __init__(self, specs, hidden_dim=128, no_hint=False, edge_decoder_fp64=True):
         super().__init__()
         self.specs = specs
         self.hidden_dim = hidden_dim
@@ -459,7 +463,11 @@ class Decoder(nn.Module):
                 input_dim = cat_dim
 
             if k not in self.decoder:
-                self.decoder[k] = _DECODER_MAP[(loc, type_)](input_dim, hidden_dim)
+                decoder_cls = _DECODER_MAP[(loc, type_)]
+                if issubclass(decoder_cls, BaseEdgeDecoder):
+                    self.decoder[k] = decoder_cls(input_dim, hidden_dim, use_fp64=edge_decoder_fp64)
+                else:
+                    self.decoder[k] = decoder_cls(input_dim, hidden_dim)
 
     def forward(self, hidden, batch, stage):
         output = {}
@@ -525,7 +533,12 @@ class EncodeProcessDecode(torch.nn.Module):
         # if self.cfg.MODEL.GRU.ENABLE:
         #     self.gru = torch.compile(self.gru, dynamic=True)
         decoder_input = self.cfg.MODEL.HIDDEN_DIM*3 if self.cfg.MODEL.DECODER_USE_LAST_HIDDEN else self.cfg.MODEL.HIDDEN_DIM*2
-        self.decoder = Decoder(specs, decoder_input, no_hint=self.cfg.TRAIN.LOSS.HINT_LOSS_WEIGHT == 0.0)
+        self.decoder = Decoder(
+            specs,
+            decoder_input,
+            no_hint=self.cfg.TRAIN.LOSS.HINT_LOSS_WEIGHT == 0.0,
+            edge_decoder_fp64=self.cfg.MODEL.EDGE_DECODER_FP64,
+        )
         logger.debug(f"Decoder: {self.cfg.TRAIN.LOSS.HINT_LOSS_WEIGHT == 0.0}")
 
         self.training_progress = 0.0  # Set by Lightning module; 0 to 1 over training
