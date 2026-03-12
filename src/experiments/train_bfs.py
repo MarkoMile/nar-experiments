@@ -11,6 +11,7 @@ os.environ["TF_FORCE_GPU_ALLOW_GROWTH"] = "true"
 os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
 
 import csv
+import glob
 import time
 import torch
 from loguru import logger
@@ -84,48 +85,49 @@ def train(model, datamodule, cfg, specs, seed=42, checkpoint_dir=None, enable_wa
     monitor_metric = cfg.TRAIN.CHECKPOINT_MONITOR.format(val_nickname=val_nickname)
     monitor_mode = cfg.TRAIN.CHECKPOINT_MONITOR_MODE
 
-    callbacks = []
-    # checkpointing
-    if checkpoint_dir is not None:
-        ckpt_cbk = pl.callbacks.ModelCheckpoint(dirpath=os.path.join(cfg.DATA.ROOT, "checkpoints", str(cfg.ALGORITHM), cfg.RUN_NAME), monitor=monitor_metric, mode=monitor_mode, filename=f'seed{seed}-{{epoch}}-{{step}}', save_top_k=1, save_last=False)
-        callbacks.append(ckpt_cbk)
-        
-        periodic_ckpt_cbk = pl.callbacks.ModelCheckpoint(
-            dirpath=os.path.join(cfg.DATA.ROOT, "checkpoints", str(cfg.ALGORITHM), cfg.RUN_NAME),
-            filename=f'seed{seed}-periodic-{{epoch:03d}}',
-            every_n_epochs=500,
-            save_top_k=-1,
-            save_last=False,
+    ckpt_dir_path = os.path.join(cfg.DATA.ROOT, "checkpoints", str(cfg.ALGORITHM), cfg.RUN_NAME) if checkpoint_dir is not None else None
+
+    def _make_callbacks():
+        """Create fresh callback instances (required for each new Trainer)."""
+        cbs = []
+        _ckpt_cbk = None
+        if checkpoint_dir is not None:
+            _ckpt_cbk = pl.callbacks.ModelCheckpoint(dirpath=ckpt_dir_path, monitor=monitor_metric, mode=monitor_mode, filename=f'seed{seed}-{{epoch}}-{{step}}', save_top_k=1, save_last=False)
+            cbs.append(_ckpt_cbk)
+            cbs.append(pl.callbacks.ModelCheckpoint(
+                dirpath=ckpt_dir_path,
+                filename=f'seed{seed}-periodic-{{epoch:03d}}',
+                every_n_epochs=250,
+                save_top_k=-1,
+                save_last=False,
+            ))
+        cbs.append(pl.callbacks.EarlyStopping(monitor=monitor_metric, patience=cfg.TRAIN.EARLY_STOPPING_PATIENCE, mode=monitor_mode))
+        cbs.append(EpochProfilingCallback(every_n_epochs=100))
+        if enable_progress_bar:
+            from lightning.pytorch.callbacks import TQDMProgressBar
+            cbs.append(TQDMProgressBar(refresh_rate=20))
+        return cbs, _ckpt_cbk
+
+    def _make_trainer(logger_inst):
+        """Create a fresh Trainer instance."""
+        cbs, _ckpt_cbk = _make_callbacks()
+        _trainer = pl.Trainer(
+            enable_checkpointing=checkpoint_dir is not None,
+            callbacks=cbs,
+            max_epochs=cfg.TRAIN.MAX_EPOCHS,
+            logger=logger_inst,
+            accelerator="auto",
+            log_every_n_steps=3,
+            check_val_every_n_epoch=50,
+            gradient_clip_val=cfg.TRAIN.GRADIENT_CLIP_VAL,
+            fast_dev_run=fast_dev_run,
+            reload_dataloaders_every_n_epochs=datamodule.reload_every_n_epochs,
+            precision=cfg.TRAIN.PRECISION,
+            enable_progress_bar=enable_progress_bar,
         )
-        callbacks.append(periodic_ckpt_cbk)
-    else:
-        ckpt_cbk = None
+        return _trainer, _ckpt_cbk
 
-    # early stopping
-    early_stop_cbk = pl.callbacks.EarlyStopping(monitor=monitor_metric, patience=cfg.TRAIN.EARLY_STOPPING_PATIENCE, mode=monitor_mode)
-    callbacks.append(early_stop_cbk)
-
-    # profiling callback
-    callbacks.append(EpochProfilingCallback(every_n_epochs=100))
-
-    if enable_progress_bar:
-        from lightning.pytorch.callbacks import TQDMProgressBar
-        callbacks.append(TQDMProgressBar(refresh_rate=20))
-
-    trainer = pl.Trainer(
-        enable_checkpointing=checkpoint_dir is not None,
-        callbacks=callbacks,
-        max_epochs=cfg.TRAIN.MAX_EPOCHS,
-        logger=wandblogger,
-        accelerator="auto",
-        log_every_n_steps=3,
-        check_val_every_n_epoch=50,
-        gradient_clip_val=cfg.TRAIN.GRADIENT_CLIP_VAL,
-        fast_dev_run=fast_dev_run,
-        reload_dataloaders_every_n_epochs=datamodule.reload_every_n_epochs,
-        precision=cfg.TRAIN.PRECISION,
-        enable_progress_bar=enable_progress_bar,
-    )
+    trainer, ckpt_cbk = _make_trainer(wandblogger)
 
     # Load checkpoint
     if cfg.TRAIN.LOAD_CHECKPOINT is not None:
@@ -165,11 +167,25 @@ def train(model, datamodule, cfg, specs, seed=42, checkpoint_dir=None, enable_wa
                 logger.info("Starting training...")
                 trainer.fit(model, datamodule=datamodule)
             except NaNException:
-                logger.info(f"NaN detected, trying to recover from {ckpt_cbk.best_model_path}...")
-                try:
-                    trainer.fit(model, datamodule=datamodule, ckpt_path=ckpt_cbk.best_model_path)
-                except NaNException:
-                    logger.info("Recovery failed, stopping training...")
+                # Find the most recent periodic checkpoint; fall back to best-metric checkpoint
+                recover_path = None
+                if ckpt_dir_path:
+                    periodic_files = glob.glob(os.path.join(ckpt_dir_path, f'seed{seed}-periodic-*.ckpt'))
+                    if periodic_files:
+                        recover_path = max(periodic_files, key=os.path.getmtime)
+                if recover_path is None and ckpt_cbk and ckpt_cbk.best_model_path:
+                    recover_path = ckpt_cbk.best_model_path
+                if recover_path:
+                    logger.info(f"NaN detected, recovering from {recover_path} with a fresh Trainer...")
+                    # A Trainer cannot be reused after an exception — its internal
+                    # state machine is corrupted and will fast-forward through epochs.
+                    trainer, ckpt_cbk = _make_trainer(wandblogger)
+                    try:
+                        trainer.fit(model, datamodule=datamodule, ckpt_path=recover_path)
+                    except NaNException:
+                        logger.info("Recovery failed, stopping training...")
+                else:
+                    logger.info("NaN detected but no checkpoint available for recovery.")
         except KeyboardInterrupt:
             logger.info("Training interrupted via KeyboardInterrupt. Proceeding to save final checkpoint...")
 
