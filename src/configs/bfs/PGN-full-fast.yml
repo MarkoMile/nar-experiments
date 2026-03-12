@@ -72,12 +72,12 @@ TRAIN:
   NUM_WORKERS: 5
   EARLY_STOPPING_PATIENCE: 2000
   OPTIMIZER:
-    LR: 0.0004239
+    LR: 0.0006
     WEIGHT_DECAY: 0.075
   SCHEDULER:
     ENABLE: True
     NAME: "CosineAnnealingWarmRestarts"
-    PARAMS: [{ "T_0": 150, "T_mult": 2, "eta_min": 0.00001 }]
+    PARAMS: [{ "T_0": 250, "T_mult": 1, "eta_min": 0.00001 }]
     INTERVAL: "epoch"
   WEIGHT_PROJECTION:
     ENABLE: False
