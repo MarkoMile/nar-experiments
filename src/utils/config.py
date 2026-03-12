@@ -82,6 +82,13 @@ _C.TRAIN.WEIGHT_PROJECTION.EVERY_N_STEPS = 1  # project every N optimizer steps
 _C.TRAIN.WEIGHT_PROJECTION.SCALE_DECAY = False  # apply separate weight decay to LayerNorm scale params
 _C.TRAIN.WEIGHT_PROJECTION.SCALE_DECAY_FACTOR = 1.0  # multiplier on WD for LayerNorm scales (1.0 = same as main WD)
 
+# Grokfast: amplify slow (EMA) gradient component to accelerate grokking.
+_C.TRAIN.GROKFAST = CN()
+_C.TRAIN.GROKFAST.ENABLE = False
+_C.TRAIN.GROKFAST.LAMBDA = 1.0  # amplification strength on EMA gradient component
+_C.TRAIN.GROKFAST.BETA = 0.98   # EMA coefficient for slow gradient tracking
+_C.TRAIN.GROKFAST.WARMUP_STEPS = 100  # do not amplify during very early unstable steps
+
 _C.TRAIN.LOSS = CN()
 _C.TRAIN.LOSS.OUTPUT_LOSS_WEIGHT = 1.0
 _C.TRAIN.LOSS.HINT_LOSS_WEIGHT = 1.0

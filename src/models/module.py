@@ -114,6 +114,7 @@ class SALSACLRSModel(pl.LightningModule):
         self.specs = specs
         self.save_hyperparameters()
         self._initial_norms = {}  # populated on first training step for NaP
+        self._grokfast_ema = {}   # name -> EMA of gradients
 
     def forward(self, batch):
         return self.model(batch)        
@@ -270,6 +271,51 @@ class SALSACLRSModel(pl.LightningModule):
                 raise NotImplementedError(f"Scheduler {self.cfg.TRAIN.SCHEDULER.NAME} not implemented")
 
         return out
+
+    # ---- Grokfast (slow-gradient amplification) ----
+
+    def _apply_grokfast(self):
+        """Apply Grokfast update: grad <- grad + lambda * EMA(grad)."""
+        if not self.cfg.TRAIN.GROKFAST.ENABLE:
+            return
+
+        beta = self.cfg.TRAIN.GROKFAST.BETA
+        lam = self.cfg.TRAIN.GROKFAST.LAMBDA
+        warmup_steps = self.cfg.TRAIN.GROKFAST.WARMUP_STEPS
+
+        total_delta_sq = 0.0
+        total_grad_sq = 0.0
+
+        with torch.no_grad():
+            for name, param in self.named_parameters():
+                if (not param.requires_grad) or (param.grad is None):
+                    continue
+
+                grad = param.grad.detach()
+                ema = self._grokfast_ema.get(name)
+                if ema is None or ema.shape != grad.shape or ema.device != grad.device or ema.dtype != grad.dtype:
+                    ema = grad.clone()
+                else:
+                    ema.mul_(beta).add_(grad, alpha=(1.0 - beta))
+                self._grokfast_ema[name] = ema
+
+                # Track grad norm before applying Grokfast for diagnostics.
+                total_grad_sq += float(torch.sum(grad.float() * grad.float()).item())
+
+                if self.global_step >= warmup_steps:
+                    delta = lam * ema
+                    param.grad.add_(delta)
+                    total_delta_sq += float(torch.sum(delta.float() * delta.float()).item())
+
+        if self.global_step % 50 == 0:
+            grad_norm = total_grad_sq ** 0.5
+            delta_norm = total_delta_sq ** 0.5
+            ratio = delta_norm / (grad_norm + 1e-12)
+            self.log('train/grokfast_ratio', ratio, prog_bar=False)
+
+    def on_before_optimizer_step(self, optimizer: Optimizer):
+        # Apply Grokfast after backward and before the optimizer update.
+        self._apply_grokfast()
 
     # ---- Normalize-and-Project (NaP) weight projection ----
 
