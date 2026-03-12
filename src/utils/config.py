@@ -39,6 +39,7 @@ _C.MODEL.TEACHER_FORCING.CURRICULUM.END_DROPOUT = 0.5
 
 _C.MODEL.AUTOREGRESSIVE = CN()
 _C.MODEL.AUTOREGRESSIVE.ENABLE = False
+_C.MODEL.AUTOREGRESSIVE.POINTER = True  # Whether to autoregress pointer hints (pi_h). False = pointer hints always use TF.
 
 # -----------------------------------------------------------------------------
 # Training

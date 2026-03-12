@@ -248,9 +248,12 @@ class HintEncoder(nn.Module):
                 
             self.encoder[k] = _ENCODER_MAP[(loc, type_)](input_dim, hidden_dim)
 
-    def forward(self, batch, step, current_hidden):
+    def forward(self, batch, step, current_hidden, pointer_only=None):
         """Encodes all ground-truth hints for a specific timestep.
         Only encodes node-level hints to sum with the node hidden state.
+        
+        Args:
+            pointer_only: None = all hints (default), True = only pointer hints, False = only non-pointer hints
         """
         encoded_hidden = None
         for key in batch.hints:
@@ -259,6 +262,12 @@ class HintEncoder(nn.Module):
             
             # Check if it's a node hint or edge hint (pointers are node loc but edge shape in hints)
             _, loc, type_, _ = self.specs[key]
+            
+            # Filter by pointer_only flag
+            if pointer_only is True and type_ != 'pointer':
+                continue
+            if pointer_only is False and type_ == 'pointer':
+                continue
             
             hint_step = batch[key][:, step]
             
@@ -549,19 +558,36 @@ class EncodeProcessDecode(torch.nn.Module):
         
         use_teacher_forcing = self.cfg.MODEL.TEACHER_FORCING.ENABLE and self.training
         use_autoregressive = self.cfg.MODEL.AUTOREGRESSIVE.ENABLE
+        exclude_pointer_ar = use_autoregressive and not self.cfg.MODEL.AUTOREGRESSIVE.POINTER
         
         for step in range(max_len):
             # 1. Inject hints (Teacher Forcing or Autoregressive)
             encoded_hint_gt = None
             encoded_hint_ar = None
+            # When pointer AR is excluded, split TF encoding into pointer-only and non-pointer-only
+            encoded_pointer_gt = None
+            encoded_nonpointer_gt = None
             
             if use_teacher_forcing:
                 if step == 0:
                     encoded_hint_gt = torch.zeros_like(hidden)
+                    if exclude_pointer_ar:
+                        encoded_pointer_gt = torch.zeros_like(hidden)
+                        encoded_nonpointer_gt = torch.zeros_like(hidden)
                 else:
-                    encoded_hint_gt = self.hint_encoder(batch, step - 1, hidden)
-                    if encoded_hint_gt is None:
-                        encoded_hint_gt = torch.zeros_like(hidden)
+                    if exclude_pointer_ar:
+                        # Split GT encoding: pointer hints always get TF, non-pointer hints participate in mixing
+                        encoded_pointer_gt = self.hint_encoder(batch, step - 1, hidden, pointer_only=True)
+                        encoded_nonpointer_gt = self.hint_encoder(batch, step - 1, hidden, pointer_only=False)
+                        if encoded_pointer_gt is None:
+                            encoded_pointer_gt = torch.zeros_like(hidden)
+                        if encoded_nonpointer_gt is None:
+                            encoded_nonpointer_gt = torch.zeros_like(hidden)
+                        encoded_hint_gt = encoded_pointer_gt + encoded_nonpointer_gt
+                    else:
+                        encoded_hint_gt = self.hint_encoder(batch, step - 1, hidden)
+                        if encoded_hint_gt is None:
+                            encoded_hint_gt = torch.zeros_like(hidden)
             
             if use_autoregressive:
                 if step == 0:
@@ -575,6 +601,11 @@ class EncodeProcessDecode(torch.nn.Module):
                         
                         # Detach AR predictions to avoid BPTT through the unrolled loop
                         _, loc, type_, _ = self.specs[key]
+                        
+                        # Skip pointer hints when excluded from AR
+                        if exclude_pointer_ar and type_ == 'pointer':
+                            continue
+                        
                         raw_pred = prev_hints[key].detach()
                         
                         if type_ == 'pointer':
@@ -604,9 +635,13 @@ class EncodeProcessDecode(torch.nn.Module):
                 if dropout_prob > 0.0 and self.training:
                     # Graph-level mask: sample once per graph, apply to all nodes in that graph
                     num_graphs = batch.batch.max().item() + 1
-                    graph_mask = (torch.rand(num_graphs, 1, device=encoded_hint_gt.device) > dropout_prob).float()
+                    graph_mask = (torch.rand(num_graphs, 1, device=hidden.device) > dropout_prob).float()
                     mask = graph_mask[batch.batch]  # Broadcast back to node level
-                    encoded_hint = encoded_hint_gt * mask + encoded_hint_ar * (1.0 - mask)
+                    if exclude_pointer_ar:
+                        # Pointer hints: always TF. Non-pointer hints: scheduled sampling.
+                        encoded_hint = encoded_pointer_gt + encoded_nonpointer_gt * mask + encoded_hint_ar * (1.0 - mask)
+                    else:
+                        encoded_hint = encoded_hint_gt * mask + encoded_hint_ar * (1.0 - mask)
                 else:
                     encoded_hint = encoded_hint_gt
             elif use_teacher_forcing:
@@ -622,7 +657,7 @@ class EncodeProcessDecode(torch.nn.Module):
                 else:
                     encoded_hint = encoded_hint_gt
             elif use_autoregressive:
-                # Only Autoregressive
+                # Only Autoregressive (pointer hints excluded if POINTER=False → zero pointer signal)
                 encoded_hint = encoded_hint_ar
 
             if encoded_hint is not None:
