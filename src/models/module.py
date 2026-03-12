@@ -267,6 +267,11 @@ class SALSACLRSModel(pl.LightningModule):
 
     # ---- Normalize-and-Project (NaP) weight projection ----
 
+    def on_train_start(self):
+        """Store initial norms before the first optimizer step."""
+        if self.cfg.TRAIN.WEIGHT_PROJECTION.ENABLE:
+            self._store_initial_norms()
+
     def _store_initial_norms(self):
         """Record Frobenius norm of each ≥2D parameter at init (called once)."""
         for name, param in self.named_parameters():
@@ -286,8 +291,6 @@ class SALSACLRSModel(pl.LightningModule):
         """Apply NaP weight projection after optimizer step."""
         if not self.cfg.TRAIN.WEIGHT_PROJECTION.ENABLE:
             return
-        # Store initial norms on first step
-        if not self._initial_norms:
-            self._store_initial_norms()
+            
         if self.global_step % self.cfg.TRAIN.WEIGHT_PROJECTION.EVERY_N_STEPS == 0:
             self._project_weights()
