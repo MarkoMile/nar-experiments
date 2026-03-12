@@ -544,6 +544,8 @@ class EncodeProcessDecode(torch.nn.Module):
         # Process for length
         hidden = input_hidden
         noise_std = self.cfg.MODEL.LATENT_NOISE_STD
+        last_hidden_mode = self.cfg.MODEL.LAST_HIDDEN_MODE  # "current" or "previous"
+        last_hidden_carry = None  # used only in "previous" mode
         
         use_teacher_forcing = self.cfg.MODEL.TEACHER_FORCING.ENABLE and self.training
         use_autoregressive = self.cfg.MODEL.AUTOREGRESSIVE.ENABLE
@@ -630,7 +632,12 @@ class EncodeProcessDecode(torch.nn.Module):
             if self.training and noise_std > 0:
                 hidden = hidden + torch.randn_like(hidden) * noise_std
             
-            last_hidden = hidden
+            if last_hidden_mode == "previous":
+                # Carry previous step's GRU output — processor sees 3 different inputs
+                last_hidden = last_hidden_carry if last_hidden_carry is not None else hidden
+            else:
+                # SALSA-CLRS default: snapshot current hidden before processor
+                last_hidden = hidden
             for _ in range(self.cfg.MODEL.MSG_PASSING_STEPS):
                 processed = self.processor(input_hidden, hidden, last_hidden, randomness=randomness[:, step] if randomness is not None else None, edge_index=batch.edge_index, batch_assignment=batch.batch, **{self.edge_weight_name: self.process_weights(batch) for _ in range(1) if hasattr(batch, 'weights') })
                 if self.cfg.MODEL.PROCESSOR.RESIDUAL:
@@ -639,6 +646,8 @@ class EncodeProcessDecode(torch.nn.Module):
                     hidden = processed
                 if self.cfg.MODEL.GRU.ENABLE:
                     hidden = self.gru(hidden, last_hidden)
+            if last_hidden_mode == "previous":
+                last_hidden_carry = hidden  # save GRU output for next step
             if self.cfg.TRAIN.LOSS.HINT_LOSS_WEIGHT > 0.0:
                 hints.append(self.decoder(stack_hidden(input_hidden, hidden, last_hidden, self.cfg.MODEL.DECODER_USE_LAST_HIDDEN), batch, 'hints'))
 

@@ -22,6 +22,7 @@ _C.MODEL.PROCESSOR.KWARGS = [{}] # dict not allowed so we use list of dict and j
 
 _C.MODEL.DECODER_USE_LAST_HIDDEN = False
 _C.MODEL.PROCESSOR_USE_LAST_HIDDEN = False
+_C.MODEL.LAST_HIDDEN_MODE = "current"  # "current" = set before processor (SALSA-CLRS default), "previous" = carry from previous step's GRU output
 
 _C.MODEL.LATENT_NOISE_STD = 0.0  # Gaussian noise σ injected into hidden state (0.0 = disabled)
 
