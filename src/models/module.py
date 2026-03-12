@@ -182,11 +182,17 @@ class SALSACLRSModel(pl.LightningModule):
                 metrics[m[:-7]] = output[m].float().mean()
         return metrics
     
+    def _safe_log_value(self, value):
+        """Clamp inf/nan to a large finite value so WandB metadata serialization doesn't crash."""
+        if torch.isinf(value) or torch.isnan(value):
+            return torch.tensor(1e6, device=value.device, dtype=value.dtype)
+        return value
+
     def validation_step(self, batch, batch_idx, dataloader_idx=0):
         loss, outloss, hintloss, output = self._shared_eval(batch, dataloader_idx, "val")
-        self.log(f'val/loss/{self.trainer.datamodule.get_val_loader_nickname(dataloader_idx)}', loss, batch_size=batch.num_graphs, add_dataloader_idx=False)
-        self.log(f'val/outloss/{self.trainer.datamodule.get_val_loader_nickname(dataloader_idx)}', outloss, batch_size=batch.num_graphs, add_dataloader_idx=False)
-        self.log(f'val/hintloss/{self.trainer.datamodule.get_val_loader_nickname(dataloader_idx)}', hintloss, batch_size=batch.num_graphs, add_dataloader_idx=False)
+        self.log(f'val/loss/{self.trainer.datamodule.get_val_loader_nickname(dataloader_idx)}', self._safe_log_value(loss), batch_size=batch.num_graphs, add_dataloader_idx=False)
+        self.log(f'val/outloss/{self.trainer.datamodule.get_val_loader_nickname(dataloader_idx)}', self._safe_log_value(outloss), batch_size=batch.num_graphs, add_dataloader_idx=False)
+        self.log(f'val/hintloss/{self.trainer.datamodule.get_val_loader_nickname(dataloader_idx)}', self._safe_log_value(hintloss), batch_size=batch.num_graphs, add_dataloader_idx=False)
 
         self.step_output_cache[dataloader_idx].append(output)
         return loss

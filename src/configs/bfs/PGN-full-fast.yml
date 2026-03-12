@@ -59,7 +59,7 @@ DATA:
 
 TRAIN:
   PRECISION: "16-mixed"
-  GRADIENT_CLIP_VAL: None
+  GRADIENT_CLIP_VAL: 5.0 # just for preventing NaN / inf
   LOSS:
     OUTPUT_LOSS_WEIGHT: 1.0
     HINT_LOSS_WEIGHT: 1.0
