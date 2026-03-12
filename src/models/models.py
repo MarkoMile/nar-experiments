@@ -609,8 +609,19 @@ class EncodeProcessDecode(torch.nn.Module):
                         raw_pred = prev_hints[key].detach()
                         
                         if type_ == 'pointer':
-                            soft_pred = torch.exp(raw_pred)
-                            key_encoding = self.hint_encoder.encoder[key](soft_pred, hidden, batch.edge_index)
+                            if self.cfg.MODEL.AUTOREGRESSIVE.POINTER_MODE == 'hard':
+                                # Hard argmax: pick best neighbor per source node → one-hot
+                                # raw_pred is [E] log-softmax grouped by edge_index[0]
+                                hard_pred = torch.zeros_like(raw_pred)
+                                # For each source node, find the edge with max log-prob
+                                num_nodes = hidden.size(0)
+                                max_vals = torch_scatter.scatter_max(raw_pred, batch.edge_index[0], dim=0, dim_size=num_nodes)[0]
+                                hard_pred = (raw_pred == max_vals[batch.edge_index[0]]).float()
+                                key_encoding = self.hint_encoder.encoder[key](hard_pred, hidden, batch.edge_index)
+                            else:
+                                # Soft: convert log-softmax → probabilities
+                                soft_pred = torch.exp(raw_pred)
+                                key_encoding = self.hint_encoder.encoder[key](soft_pred, hidden, batch.edge_index)
                         else:
                             if type_ == 'categorical' or type_ == 'mask_one':
                                 soft_pred = torch.exp(raw_pred)
