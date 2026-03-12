@@ -101,7 +101,7 @@ def train(model, datamodule, cfg, specs, seed=42, checkpoint_dir=None, enable_wa
                 save_top_k=-1,
                 save_last=False,
             ))
-        cbs.append(pl.callbacks.EarlyStopping(monitor=monitor_metric, patience=cfg.TRAIN.EARLY_STOPPING_PATIENCE, mode=monitor_mode))
+        cbs.append(pl.callbacks.EarlyStopping(monitor=monitor_metric, patience=cfg.TRAIN.EARLY_STOPPING_PATIENCE, mode=monitor_mode, check_finite=False))
         cbs.append(EpochProfilingCallback(every_n_epochs=100))
         if enable_progress_bar:
             from lightning.pytorch.callbacks import TQDMProgressBar
@@ -166,6 +166,7 @@ def train(model, datamodule, cfg, specs, seed=42, checkpoint_dir=None, enable_wa
             try:
                 logger.info("Starting training...")
                 trainer.fit(model, datamodule=datamodule)
+                logger.info(f"Training finished at epoch {trainer.current_epoch}/{cfg.TRAIN.MAX_EPOCHS}")
             except NaNException:
                 # Find the most recent periodic checkpoint; fall back to best-metric checkpoint
                 recover_path = None
@@ -182,6 +183,7 @@ def train(model, datamodule, cfg, specs, seed=42, checkpoint_dir=None, enable_wa
                     trainer, ckpt_cbk = _make_trainer(wandblogger)
                     try:
                         trainer.fit(model, datamodule=datamodule, ckpt_path=recover_path)
+                        logger.info(f"Recovery training finished at epoch {trainer.current_epoch}/{cfg.TRAIN.MAX_EPOCHS}")
                     except NaNException:
                         logger.info("Recovery failed, stopping training...")
                 else:

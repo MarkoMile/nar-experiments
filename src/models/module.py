@@ -195,7 +195,7 @@ class SALSACLRSModel(pl.LightningModule):
         self.log(f'val/hintloss/{self.trainer.datamodule.get_val_loader_nickname(dataloader_idx)}', self._safe_log_value(hintloss), batch_size=batch.num_graphs, add_dataloader_idx=False)
 
         self.step_output_cache[dataloader_idx].append(output)
-        return loss
+        return self._safe_log_value(loss)
     
     def test_step(self, batch, batch_idx, dataloader_idx=0):
         loss, outloss, hintloss, output = self._shared_eval(batch, dataloader_idx, "test")
