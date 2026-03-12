@@ -580,8 +580,8 @@ class EncodeProcessDecode(torch.nn.Module):
         use_teacher_forcing = self.cfg.MODEL.TEACHER_FORCING.ENABLE and self.training
         use_autoregressive = self.cfg.MODEL.AUTOREGRESSIVE.ENABLE
         # Fair ablation switch: when POINTER=False, exclude pointer hints from both
-        # AR and TF hint injection paths (not only AR).
-        disable_pointer_hints = use_autoregressive and not self.cfg.MODEL.AUTOREGRESSIVE.POINTER
+        # AR and TF hint injection paths regardless of whether AR is enabled.
+        disable_pointer_hints = not self.cfg.MODEL.AUTOREGRESSIVE.POINTER
         
         for step in range(max_len):
             # 1. Inject hints (Teacher Forcing or Autoregressive)
