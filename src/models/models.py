@@ -571,9 +571,9 @@ class EncodeProcessDecode(torch.nn.Module):
                         if key not in prev_hints:
                             continue
                         
-                        # Apply differentiable formulations for continuous predictions
+                        # Detach AR predictions to avoid BPTT through the unrolled loop
                         _, loc, type_, _ = self.specs[key]
-                        raw_pred = prev_hints[key]
+                        raw_pred = prev_hints[key].detach()
                         
                         if type_ == 'pointer':
                             soft_pred = torch.exp(raw_pred)
