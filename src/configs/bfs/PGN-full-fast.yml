@@ -1,4 +1,4 @@
-RUN_NAME: "cyclic-lr-aggressive"
+RUN_NAME: "cyclic-lr-NO_GC-0.075WD"
 ALGORITHM: "bfs"
 MODEL:
   DECODER_USE_LAST_HIDDEN: True
@@ -59,7 +59,7 @@ DATA:
 
 TRAIN:
   PRECISION: "16-mixed"
-  GRADIENT_CLIP_VAL: 1.0
+  GRADIENT_CLIP_VAL: None
   LOSS:
     OUTPUT_LOSS_WEIGHT: 1.0
     HINT_LOSS_WEIGHT: 1.0
@@ -73,7 +73,7 @@ TRAIN:
   EARLY_STOPPING_PATIENCE: 2000
   OPTIMIZER:
     LR: 0.0004239
-    WEIGHT_DECAY: 0.09
+    WEIGHT_DECAY: 0.075
   SCHEDULER:
     ENABLE: True
     NAME: "CosineAnnealingWarmRestarts"
