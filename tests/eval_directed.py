@@ -1,8 +1,9 @@
 """
-Script to evaluate a trained model checkpoint on the test set.
+Script to evaluate a trained model checkpoint on the newly added directed citation network datasets
+(scale-free, GN, and GNR topologies) treated as undirected graphs for robust BFS evaluation.
 
 Usage:
-    python tests/eval_checkpoint.py --cfg src/configs/bfs/PGN-grokking.yml --ckpt path/to/model.ckpt
+    python tests/eval_directed.py --ckpt path/to/model.ckpt
 """
 
 import os
@@ -33,7 +34,7 @@ def format_results_table(results):
         merged_results.update(d)
 
     # Group metrics by dataset
-    # Metrics are usually named like: "test/graph_accuracy/ws_800"
+    # Metrics are usually named like: "test/graph_accuracy/sf_800"
     datasets_metrics = {}
     metric_names = set()
 
@@ -94,6 +95,7 @@ def main():
     parser.add_argument("--ckpt", type=str, required=True, help="Path to checkpoint")
     parser.add_argument("--seed", type=int, default=42, help="Random seed")
     parser.add_argument("--num-workers", type=int, default=4, help="Number of dataloader workers")
+    parser.add_argument("--num-samples", type=int, default=15, help="Number of samples per generated dataset")
     args = parser.parse_args()
 
     pl.seed_everything(args.seed)
@@ -114,8 +116,36 @@ def main():
     # Get cfg directly from the loaded model
     cfg = model.cfg
 
+    # Force directed testing flag (will be evaluated directly as undirected graphs
+    # by our monkey-patched setup, making BFS paths dense and long)
+    cfg.DATA.DIRECTED = True
+    
+    # Override the test dataset configuration to strictly evaluate directed citation-style graphs
+    cfg.DATA.TEST.NUM_SAMPLES = args.num_samples
+    cfg.DATA.TEST.GRAPH_GENERATOR = [
+        "scale_free", "scale_free", "scale_free", 
+        "gn", "gn", "gn", 
+        "gnr", "gnr", "gnr"
+    ]
+    cfg.DATA.TEST.NICKNAME = [
+        "sf_16", "sf_80", "sf_800", 
+        "gn_16", "gn_80", "gn_800", 
+        "gnr_16", "gnr_80", "gnr_800"
+    ]
+    cfg.DATA.TEST.GENERATOR_PARAMS = [
+        {"n": 16, "alpha": 0.41, "beta": 0.54, "gamma": 0.05, "connected": True},
+        {"n": 80, "alpha": 0.41, "beta": 0.54, "gamma": 0.05, "connected": True},
+        {"n": 800, "alpha": 0.41, "beta": 0.54, "gamma": 0.05, "connected": True},
+        {"n": 16},
+        {"n": 80},
+        {"n": 800},
+        {"n": 16, "p": 0.5},
+        {"n": 80, "p": 0.5},
+        {"n": 800, "p": 0.5}
+    ]
+
     # Load Data
-    logger.info("Loading test datasets...")
+    logger.info(f"Loading directed test datasets (Samples per set: {args.num_samples})...")
     test_datasets_dict = get_dataset("test", cfg)
     
     datamodule = SALSACLRSDataModule(
@@ -148,7 +178,7 @@ def main():
 
     # Print Table
     print("\n" + "="*80)
-    print("EVALUATION RESULTS")
+    print("EVALUATION RESULTS (Directed Citation Graphs)")
     print("="*80)
     table = format_results_table(results)
     print(table)
