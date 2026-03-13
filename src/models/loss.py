@@ -4,20 +4,30 @@ import torch_scatter
 from loguru import logger
 from src.utils.utils import NaNException
 
-def calculate_loss(mask, truth, pred, edge_index, type_, batch_assignment):
+def calculate_loss(mask, truth, pred, edge_index, type_, batch_assignment, use_fp64=True):
     if type_ == "scalar":
         safe_pred = torch.where(mask > 0, pred, truth)
         # Use simple MSE with double precision to avoid square overflow if outputs are humongous
-        mse = (safe_pred.double() - truth.double()) ** 2
-        return torch.mean(mse.float() * mask)
+        if use_fp64:
+            mse = (safe_pred.double() - truth.double()) ** 2
+            return torch.mean(mse.float() * mask)
+        else:
+            mse = (safe_pred - truth) ** 2
+            return torch.mean(mse * mask)
     elif type_ == "mask":
         # pred is not sigmoided due to autocast issues
         safe_pred = torch.where(mask > 0, pred, torch.zeros_like(pred))
-        return torch.mean(F.binary_cross_entropy_with_logits(safe_pred, truth, reduction='none') * mask)
+        if use_fp64:
+            return torch.mean(F.binary_cross_entropy_with_logits(safe_pred.float(), truth.float(), reduction='none') * mask.float())
+        else:
+            return torch.mean(F.binary_cross_entropy_with_logits(safe_pred, truth, reduction='none') * mask)
     elif type_ == "mask_one":
         # cross entropy loss, pred is logsoftmaxed
         logits = torch.where((truth > 0) & (mask > 0), truth * pred, torch.zeros_like(pred)) * mask
-        return (-torch_scatter.scatter(logits, batch_assignment, dim=0)).mean()
+        if use_fp64:
+            return (-torch_scatter.scatter(logits.float(), batch_assignment, dim=0)).mean()
+        else:
+            return (-torch_scatter.scatter(logits, batch_assignment, dim=0)).mean()
     elif type_ == "categorical":
         # Per node cross entropy loss, pred is logsoftmaxed
         pred = pred.permute(0, 2, 1) # H x C x N -> H x N x C
@@ -25,22 +35,32 @@ def calculate_loss(mask, truth, pred, edge_index, type_, batch_assignment):
         # repeat mask for each category
         mask = mask.unsqueeze(-1).repeat_interleave(categories, dim=-1) # H x N -> H x N x C
         logits = torch.where((truth > 0) & (mask > 0), truth * pred, torch.zeros_like(pred)) * mask # (H x) N x C
-        return (-torch.sum(logits, dim=-1)).mean()
+        if use_fp64:
+            return (-torch.sum(logits.float(), dim=-1)).mean()
+        else:
+            return (-torch.sum(logits, dim=-1)).mean()
     elif type_ == "pointer":
         # pred is logsoftmaxed
         logits = torch.where((truth > 0) & (mask > 0), truth * pred, torch.zeros_like(pred)) * mask
-        loss = (-torch_scatter.scatter(logits, edge_index[0], dim=0))
+        if use_fp64:
+            loss = (-torch_scatter.scatter(logits.float(), edge_index[0], dim=0))
+        else:
+            loss = (-torch_scatter.scatter(logits, edge_index[0], dim=0))
         return loss.mean()
     else:
         raise NotImplementedError
     
 class CLRSLoss(torch.nn.Module):
-    def __init__(self, specs, hidden_loss_type):
+    def __init__(self, specs, hidden_loss_type, use_fp64=True):
         super().__init__()
         self.specs = specs
+        self.use_fp64 = use_fp64
 
         if hidden_loss_type == "l2":
-            self.hidden_loss = lambda x: torch.mean(torch.linalg.norm(x.double(), dim=1).float())
+            if self.use_fp64:
+                self.hidden_loss = lambda x: torch.mean(torch.linalg.norm(x.double(), dim=1).float())
+            else:
+                self.hidden_loss = lambda x: torch.mean(torch.linalg.norm(x, dim=1))
         else:
             raise NotImplementedError(f"Unknown hidden loss type {hidden_loss_type}")
 
@@ -54,7 +74,7 @@ class CLRSLoss(torch.nn.Module):
                 raise NaNException(f"NaN in {key} output")
             stage, loc, type_, cat_dim = self.specs[key]
             mask = torch.ones_like(batch[key])
-            output_loss += calculate_loss(mask, batch[key], outputs[key], batch.edge_index,  type_, batch.batch)
+            output_loss += calculate_loss(mask, batch[key], outputs[key], batch.edge_index,  type_, batch.batch, use_fp64=self.use_fp64)
 
         hint_loss = torch.zeros(1, device=device)
         final_node_idx = (batch.length[batch.batch]-1)
@@ -72,6 +92,6 @@ class CLRSLoss(torch.nn.Module):
             else:
                 # graph attribute
                 mask = torch.arange(batch.length.max(), device=device).unsqueeze(0) <= batch.length.unsqueeze(1)
-            hint_loss += calculate_loss(mask, batch[key], hints[key], batch.edge_index, type_, batch.batch)
+            hint_loss += calculate_loss(mask, batch[key], hints[key], batch.edge_index, type_, batch.batch, use_fp64=self.use_fp64)
         
         return output_loss, hint_loss, self.hidden_loss(hidden)

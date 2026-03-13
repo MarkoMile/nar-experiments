@@ -108,7 +108,8 @@ class SALSACLRSModel(pl.LightningModule):
         self.hparams.update(cfg)
         self.cfg = cfg
         self.model = EncodeProcessDecode(specs, cfg)
-        self.loss = CLRSLoss(specs, cfg.TRAIN.LOSS.HIDDEN_LOSS_TYPE)
+        edge_decoder_fp64 = getattr(self.cfg.MODEL, "EDGE_DECODER_FP64", False)
+        self.loss = CLRSLoss(specs, cfg.TRAIN.LOSS.HIDDEN_LOSS_TYPE, use_fp64=edge_decoder_fp64)
         self.step_output_cache = defaultdict(list)
         self.current_loader_idx = 0
         self.specs = specs

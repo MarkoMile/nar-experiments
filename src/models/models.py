@@ -343,11 +343,14 @@ class NodeMaskOneDecoder(NodeBaseDecoder):
 
 
 class NodeCategoricalDecoder(NodeBaseDecoder):
-    def __init__(self, input_dim, hidden_dim=128):
+    def __init__(self, input_dim, hidden_dim=128, use_fp64=True):
         super().__init__(input_dim, hidden_dim)
+        self.use_fp64 = use_fp64
 
     def forward(self, x, batch_assignment, **kwargs):
         out = super().forward(x) # N x C
+        if self.use_fp64:
+            out = out.float()
         out = torch.log_softmax(out, dim=-1)
         return torch.nan_to_num(out)
 
@@ -380,7 +383,10 @@ class EdgeMaskDecoder(BaseEdgeDecoder):
         super().__init__(input_dim, hidden_dim, use_fp64=use_fp64)
 
     def forward(self, hiddens, edge_index, **kwargs):
-        out = super().forward(hiddens, edge_index).float().squeeze(-1)
+        out = super().forward(hiddens, edge_index)
+        if self.use_fp64:
+            out = out.float()
+        out = out.squeeze(-1)
         # out = torch.clamp(out, min=-50, max=50)
         return torch.nan_to_num(out)
     
@@ -392,7 +398,9 @@ class NodePointerDecoder(BaseEdgeDecoder):
         z =  super().forward(hiddens, edge_index) # E
         # per node outgoing softmax
         z = torch_scatter.scatter_log_softmax(z, edge_index[0], dim=0)
-        return torch.nan_to_num(z.float())
+        if self.use_fp64:
+            z = z.float()
+        return torch.nan_to_num(z)
 
 #### Graph decoders
 
@@ -464,7 +472,7 @@ class Decoder(nn.Module):
 
             if k not in self.decoder:
                 decoder_cls = _DECODER_MAP[(loc, type_)]
-                if issubclass(decoder_cls, BaseEdgeDecoder):
+                if issubclass(decoder_cls, BaseEdgeDecoder) or decoder_cls == NodeCategoricalDecoder:
                     self.decoder[k] = decoder_cls(input_dim, hidden_dim, use_fp64=edge_decoder_fp64)
                 else:
                     self.decoder[k] = decoder_cls(input_dim, hidden_dim)
