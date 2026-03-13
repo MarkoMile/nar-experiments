@@ -14,6 +14,12 @@ import csv
 import glob
 import time
 import torch
+import torch.multiprocessing as mp
+try:
+    mp.set_start_method('spawn', force=True)
+except RuntimeError:
+    pass
+
 from loguru import logger
 import lightning.pytorch as pl
 import argparse
