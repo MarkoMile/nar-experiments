@@ -280,6 +280,12 @@ class SALSACLRSModel(pl.LightningModule):
         if not self.cfg.TRAIN.GROKFAST.ENABLE:
             return
 
+        # Pre-clip gradients to prevent Grokfast EMA from being poisoned by massive spikes.
+        # Lightning applies clipping *after* this hook, but we need EMA to track bounded grads.
+        clip_val = getattr(self.cfg.TRAIN, "GRADIENT_CLIP_VAL", 0.0)
+        if clip_val > 0.0:
+            torch.nn.utils.clip_grad_norm_(self.parameters(), clip_val)
+
         beta = self.cfg.TRAIN.GROKFAST.BETA
         lam = self.cfg.TRAIN.GROKFAST.LAMBDA
         warmup_steps = self.cfg.TRAIN.GROKFAST.WARMUP_STEPS
