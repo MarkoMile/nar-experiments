@@ -299,25 +299,26 @@ class SALSACLRSModel(pl.LightningModule):
                     continue
 
                 ema = self._grokfast_ema.get(name)
-                if ema is None or ema.shape != grad.shape or ema.device != grad.device or ema.dtype != grad.dtype:
-                    ema = grad.clone()
+                # Upcast all EMA tracking internally to float32 to prevent FP16 decay/overflows
+                if ema is None or ema.shape != grad.shape or ema.device != grad.device:
+                    ema = grad.clone().float()
                 else:
-                    ema.mul_(beta).add_(grad, alpha=(1.0 - beta))
+                    ema.mul_(beta).add_(grad.float(), alpha=(1.0 - beta))
                 self._grokfast_ema[name] = ema
 
                 # Track grad norm before applying Grokfast for diagnostics.
                 total_grad_sq += float(torch.sum(grad.float() * grad.float()).item())
 
                 if self.global_step >= warmup_steps:
-                    delta = lam * ema
+                    delta = (lam * ema).to(grad.dtype)
                     
                     # Extra safety: ensure delta is safe before injecting it back into grad
-                    if torch.isfinite(delta).all():
+                    if torch.isfinite(delta).all() and torch.isfinite(grad + delta).all():
                         param.grad.add_(delta)
                         total_delta_sq += float(torch.sum(delta.float() * delta.float()).item())
                     else:
-                        # Reset EMA if it became corrupted
-                        self._grokfast_ema[name] = torch.zeros_like(grad)
+                        # Reset EMA if it became corrupted or caused gradient bounding overflow
+                        self._grokfast_ema[name] = torch.zeros_like(grad).float()
 
         if self.global_step % 50 == 0:
             grad_norm = total_grad_sq ** 0.5
