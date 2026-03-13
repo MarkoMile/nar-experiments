@@ -131,9 +131,13 @@ def train(model, datamodule, cfg, specs, seed=42, checkpoint_dir=None, enable_wa
     trainer, ckpt_cbk = _make_trainer(wandblogger)
 
     # Load checkpoint
+    resume_path = None
     if cfg.TRAIN.LOAD_CHECKPOINT is not None:
         logger.info(f"Loading checkpoint from {cfg.TRAIN.LOAD_CHECKPOINT}")
+        # Note: If we just want to resume training, pl.Trainer.fit(..., ckpt_path=...) handles it.
+        # But if we also want testing without training enabled, load it into model directly:
         model = SALSACLRSModel.load_from_checkpoint(cfg.TRAIN.LOAD_CHECKPOINT, cfg=cfg, specs=specs)
+        resume_path = cfg.TRAIN.LOAD_CHECKPOINT
 
     # Train
     if cfg.TRAIN.ENABLE:
@@ -166,7 +170,7 @@ def train(model, datamodule, cfg, specs, seed=42, checkpoint_dir=None, enable_wa
         try:
             try:
                 logger.info("Starting training...")
-                trainer.fit(model, datamodule=datamodule)
+                trainer.fit(model, datamodule=datamodule, ckpt_path=resume_path)
                 logger.info(f"Training finished at epoch {trainer.current_epoch}/{cfg.TRAIN.MAX_EPOCHS}")
             except NaNException:
                 # Find the most recent periodic checkpoint; fall back to best-metric checkpoint
@@ -241,6 +245,7 @@ if __name__ == '__main__':
     parser.add_argument("--enable-wandb", action="store_true", help="Enable wandb logging")
     parser.add_argument("--enable-progress-bar", action="store_true", help="Enable tqdm progress bars")
     parser.add_argument("--fast_dev_run", action="store_true", help="Run 1 train, val and test loop")
+    parser.add_argument("opts", default=None, nargs=argparse.REMAINDER, help="Modify config options from command line")
     args = parser.parse_args()
 
     # set seed
@@ -248,7 +253,7 @@ if __name__ == '__main__':
     logger.info(f"Using seed {args.seed}")
 
     # load config
-    cfg = load_cfg(args.cfg)
+    cfg = load_cfg(args.cfg, args.opts)
 
     DATA_DIR = cfg.DATA.ROOT
 

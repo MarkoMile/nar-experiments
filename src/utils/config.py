@@ -145,7 +145,9 @@ _C.LOGGING.WANDB.GROUP = "default"
 def get_cfg_defaults():
     return _C.clone()
 
-def load_cfg(cfg_path):
+def load_cfg(cfg_path, opts=None):
     cfg = get_cfg_defaults()
     cfg.merge_from_file(cfg_path)
+    if opts is not None:
+        cfg.merge_from_list(opts)
     return cfg
