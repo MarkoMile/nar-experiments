@@ -107,7 +107,7 @@ class Processor(nn.Module):
             processor_input += 1
         # In "concat" mode, the encoded hint is a separate input channel rather than being
         # added into the hidden state — this prevents AR prediction errors from corrupting hidden.
-        if self.cfg.MODEL.HINT_INJECTION_MODE == "concat":
+        if getattr(self.cfg.MODEL, "HINT_INJECTION_MODE", "additive") == "concat":
             processor_input += self.cfg.MODEL.HIDDEN_DIM
             
         kwargs = self.cfg.MODEL.PROCESSOR.KWARGS[0].copy()
@@ -119,7 +119,7 @@ class Processor(nn.Module):
 
     def forward(self, input_hidden, hidden, last_hidden, batch_assignment, randomness=None, hint=None, **kwargs):
         stacked = stack_hidden(input_hidden, hidden, last_hidden, self.cfg.MODEL.PROCESSOR_USE_LAST_HIDDEN)
-        if self.cfg.MODEL.HINT_INJECTION_MODE == "concat":
+        if getattr(self.cfg.MODEL, "HINT_INJECTION_MODE", "additive") == "concat":
             # Hint is a dedicated input channel — wrong AR predictions don't touch hidden state.
             hint_input = hint if hint is not None else torch.zeros_like(input_hidden)
             stacked = torch.cat([stacked, hint_input], dim=-1)
@@ -537,7 +537,7 @@ class EncodeProcessDecode(torch.nn.Module):
             specs,
             decoder_input,
             no_hint=self.cfg.TRAIN.LOSS.HINT_LOSS_WEIGHT == 0.0,
-            edge_decoder_fp64=self.cfg.MODEL.EDGE_DECODER_FP64,
+            edge_decoder_fp64=getattr(self.cfg.MODEL, "EDGE_DECODER_FP64", False),
         )
         logger.debug(f"Decoder: {self.cfg.TRAIN.LOSS.HINT_LOSS_WEIGHT == 0.0}")
 
@@ -574,14 +574,14 @@ class EncodeProcessDecode(torch.nn.Module):
         # Process for length
         hidden = input_hidden
         noise_std = self.cfg.MODEL.LATENT_NOISE_STD
-        last_hidden_mode = self.cfg.MODEL.LAST_HIDDEN_MODE  # "current" or "previous"
+        last_hidden_mode = getattr(self.cfg.MODEL, "LAST_HIDDEN_MODE", "current")  # "current" or "previous"
         last_hidden_carry = None  # used only in "previous" mode
         
         use_teacher_forcing = self.cfg.MODEL.TEACHER_FORCING.ENABLE and self.training
         use_autoregressive = self.cfg.MODEL.AUTOREGRESSIVE.ENABLE
         # Fair ablation switch: when POINTER=False, exclude pointer hints from both
         # AR and TF hint injection paths regardless of whether AR is enabled.
-        disable_pointer_hints = not self.cfg.MODEL.AUTOREGRESSIVE.POINTER
+        disable_pointer_hints = not getattr(self.cfg.MODEL.AUTOREGRESSIVE, "POINTER", False)
         
         for step in range(max_len):
             # 1. Inject hints (Teacher Forcing or Autoregressive)
@@ -618,7 +618,7 @@ class EncodeProcessDecode(torch.nn.Module):
                         raw_pred = prev_hints[key].detach()
                         
                         if type_ == 'pointer':
-                            if self.cfg.MODEL.AUTOREGRESSIVE.POINTER_MODE == 'hard':
+                            if getattr(self.cfg.MODEL.AUTOREGRESSIVE, "POINTER_MODE", "soft") == 'hard':
                                 # Hard argmax: pick best neighbor per source node → one-hot
                                 # raw_pred is [E] log-softmax grouped by edge_index[0]
                                 hard_pred = torch.zeros_like(raw_pred)
@@ -676,7 +676,7 @@ class EncodeProcessDecode(torch.nn.Module):
                 # Only Autoregressive (pointer hints excluded if POINTER=False → zero pointer signal)
                 encoded_hint = encoded_hint_ar
 
-            hint_injection_mode = self.cfg.MODEL.HINT_INJECTION_MODE
+            hint_injection_mode = getattr(self.cfg.MODEL, "HINT_INJECTION_MODE", "additive")
             if hint_injection_mode == "concat":
                 # Hint is passed as a dedicated processor input channel — hidden stays clean.
                 processor_hint = encoded_hint  # may be None; Processor.forward handles that with zeros
@@ -696,7 +696,8 @@ class EncodeProcessDecode(torch.nn.Module):
             else:
                 # SALSA-CLRS default: snapshot current hidden before processor
                 last_hidden = hidden
-            for _ in range(self.cfg.MODEL.MSG_PASSING_STEPS):
+            msg_passing_steps = getattr(self.cfg.MODEL, "MSG_PASSING_STEPS", 1)
+            for _ in range(msg_passing_steps):
                 processed = self.processor(input_hidden, hidden, last_hidden, hint=processor_hint, randomness=randomness[:, step] if randomness is not None else None, edge_index=batch.edge_index, batch_assignment=batch.batch, **{self.edge_weight_name: self.process_weights(batch) for _ in range(1) if hasattr(batch, 'weights') })
                 if self.cfg.MODEL.PROCESSOR.RESIDUAL:
                     hidden = self.residual_norm(hidden + processed)
