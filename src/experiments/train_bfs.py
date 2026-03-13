@@ -181,6 +181,20 @@ def train(model, datamodule, cfg, specs, seed=42, checkpoint_dir=None, enable_wa
                         recover_path = max(periodic_files, key=os.path.getmtime)
                 if recover_path is None and ckpt_cbk and ckpt_cbk.best_model_path:
                     recover_path = ckpt_cbk.best_model_path
+                
+                if recover_path and not os.path.exists(recover_path):
+                    logger.warning(f"Fallback checkpoint {recover_path} not found.")
+                    if ckpt_dir_path:
+                        all_ckpts = glob.glob(os.path.join(ckpt_dir_path, '*.ckpt'))
+                        valid_ckpts = [ckpt for ckpt in all_ckpts if 'final' not in ckpt]
+                        if valid_ckpts:
+                            recover_path = max(valid_ckpts, key=os.path.getmtime)
+                            logger.info(f"Found latest checkpoint manually: {recover_path}")
+                        else:
+                            recover_path = None
+                    else:
+                        recover_path = None
+
                 if recover_path:
                     logger.info(f"NaN detected, recovering from {recover_path} with a fresh Trainer...")
                     # A Trainer cannot be reused after an exception — its internal
