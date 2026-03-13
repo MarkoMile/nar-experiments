@@ -292,6 +292,11 @@ class SALSACLRSModel(pl.LightningModule):
                     continue
 
                 grad = param.grad.detach()
+                
+                # AMP / mixed-precision safety: ignore NaN/Inf gradients to prevent EMA poisoning
+                if not torch.isfinite(grad).all():
+                    continue
+
                 ema = self._grokfast_ema.get(name)
                 if ema is None or ema.shape != grad.shape or ema.device != grad.device or ema.dtype != grad.dtype:
                     ema = grad.clone()
@@ -304,8 +309,14 @@ class SALSACLRSModel(pl.LightningModule):
 
                 if self.global_step >= warmup_steps:
                     delta = lam * ema
-                    param.grad.add_(delta)
-                    total_delta_sq += float(torch.sum(delta.float() * delta.float()).item())
+                    
+                    # Extra safety: ensure delta is safe before injecting it back into grad
+                    if torch.isfinite(delta).all():
+                        param.grad.add_(delta)
+                        total_delta_sq += float(torch.sum(delta.float() * delta.float()).item())
+                    else:
+                        # Reset EMA if it became corrupted
+                        self._grokfast_ema[name] = torch.zeros_like(grad)
 
         if self.global_step % 50 == 0:
             grad_norm = total_grad_sq ** 0.5
