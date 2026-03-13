@@ -10,7 +10,7 @@ MODEL:
     NAME: PGN
     RESIDUAL: false
     KWARGS:
-    - aggr: max
+      - aggr: max
     LAYERNORM:
       ENABLE: true
       MODE: node
@@ -28,228 +28,228 @@ MODEL:
 DATA:
   TRAIN:
     NUM_SAMPLES:
-    - 16667
-    - 16667
-    - 16666
+      - 16667
+      - 16667
+      - 16666
     GRAPH_GENERATOR:
-    - er
-    - ws
-    - delaunay
+      - er
+      - ws
+      - delaunay
     GENERATOR_PARAMS:
-    - n:
-      - 4
-      - 7
-      - 11
-      - 13
-      - 16
-      p_range:
-      - 0.17
-      - 0.52
-      directed: false
-      acyclic: false
-      weighted: false
-    - n:
-      - 11
-      - 13
-      - 16
-      - 20
-      p_range:
-      - 0.05
-      - 0.2
-      k:
-      - 4
-      - 6
-      - 8
-      directed: false
-      acyclic: false
-      weighted: false
-    - n:
-      - 4
-      - 7
-      - 11
-      - 13
-      - 16
-      directed: false
-      acyclic: false
-      weighted: false
+      - n:
+          - 4
+          - 7
+          - 11
+          - 13
+          - 16
+        p_range:
+          - 0.17
+          - 0.52
+        directed: false
+        acyclic: false
+        weighted: false
+      - n:
+          - 11
+          - 13
+          - 16
+          - 20
+        p_range:
+          - 0.05
+          - 0.2
+        k:
+          - 4
+          - 6
+          - 8
+        directed: false
+        acyclic: false
+        weighted: false
+      - n:
+          - 4
+          - 7
+          - 11
+          - 13
+          - 16
+        directed: false
+        acyclic: false
+        weighted: false
   VAL:
     NUM_SAMPLES: 15
     GRAPH_GENERATOR:
-    - er
-    - er
-    - er
-    - ws
-    - ws
-    - ws
-    - delaunay
-    - delaunay
-    - delaunay
+      - er
+      - er
+      - er
+      - ws
+      - ws
+      - ws
+      - delaunay
+      - delaunay
+      - delaunay
     NICKNAME:
-    - er_16
-    - er_80
-    - er_800
-    - ws_16
-    - ws_80
-    - ws_800
-    - delaunay_16
-    - delaunay_80
-    - delaunay_800
+      - er_16
+      - er_80
+      - er_800
+      - ws_16
+      - ws_80
+      - ws_800
+      - delaunay_16
+      - delaunay_80
+      - delaunay_800
     GENERATOR_PARAMS:
-    - n: 16
-      p_range:
-      - 0.173
-      - 0.52
-      directed: false
-      acyclic: false
-      weighted: false
-    - n: 80
-      p_range:
-      - 0.054
-      - 0.164
-      directed: false
-      acyclic: false
-      weighted: false
-    - n: 800
-      p_range:
-      - 0.008
-      - 0.025
-      directed: false
-      acyclic: false
-      weighted: false
-    - n: 16
-      p_range:
-      - 0.05
-      - 0.2
-      k:
-      - 4
-      - 6
-      - 8
-      directed: false
-      acyclic: false
-      weighted: false
-    - n: 80
-      p_range:
-      - 0.05
-      - 0.2
-      k:
-      - 4
-      - 6
-      - 8
-      directed: false
-      acyclic: false
-      weighted: false
-    - n: 800
-      p_range:
-      - 0.05
-      - 0.2
-      k:
-      - 4
-      - 6
-      - 8
-      directed: false
-      acyclic: false
-      weighted: false
-    - n: 16
-      directed: false
-      acyclic: false
-      weighted: false
-    - n: 80
-      directed: false
-      acyclic: false
-      weighted: false
-    - n: 800
-      directed: false
-      acyclic: false
-      weighted: false
+      - n: 16
+        p_range:
+          - 0.173
+          - 0.52
+        directed: false
+        acyclic: false
+        weighted: false
+      - n: 80
+        p_range:
+          - 0.054
+          - 0.164
+        directed: false
+        acyclic: false
+        weighted: false
+      - n: 800
+        p_range:
+          - 0.008
+          - 0.025
+        directed: false
+        acyclic: false
+        weighted: false
+      - n: 16
+        p_range:
+          - 0.05
+          - 0.2
+        k:
+          - 4
+          - 6
+          - 8
+        directed: false
+        acyclic: false
+        weighted: false
+      - n: 80
+        p_range:
+          - 0.05
+          - 0.2
+        k:
+          - 4
+          - 6
+          - 8
+        directed: false
+        acyclic: false
+        weighted: false
+      - n: 800
+        p_range:
+          - 0.05
+          - 0.2
+        k:
+          - 4
+          - 6
+          - 8
+        directed: false
+        acyclic: false
+        weighted: false
+      - n: 16
+        directed: false
+        acyclic: false
+        weighted: false
+      - n: 80
+        directed: false
+        acyclic: false
+        weighted: false
+      - n: 800
+        directed: false
+        acyclic: false
+        weighted: false
   TEST:
     NUM_SAMPLES: 15
     GRAPH_GENERATOR:
-    - er
-    - er
-    - er
-    - ws
-    - ws
-    - ws
-    - delaunay
-    - delaunay
-    - delaunay
+      - er
+      - er
+      - er
+      - ws
+      - ws
+      - ws
+      - delaunay
+      - delaunay
+      - delaunay
     NICKNAME:
-    - er_16
-    - er_80
-    - er_800
-    - ws_16
-    - ws_80
-    - ws_800
-    - delaunay_16
-    - delaunay_80
-    - delaunay_800
+      - er_16
+      - er_80
+      - er_800
+      - ws_16
+      - ws_80
+      - ws_800
+      - delaunay_16
+      - delaunay_80
+      - delaunay_800
     GENERATOR_PARAMS:
-    - n: 16
-      p_range:
-      - 0.173
-      - 0.52
-      directed: false
-      acyclic: false
-      weighted: false
-    - n: 80
-      p_range:
-      - 0.054
-      - 0.164
-      directed: false
-      acyclic: false
-      weighted: false
-    - n: 800
-      p_range:
-      - 0.008
-      - 0.025
-      directed: false
-      acyclic: false
-      weighted: false
-    - n: 16
-      p_range:
-      - 0.05
-      - 0.2
-      k:
-      - 4
-      - 6
-      - 8
-      directed: false
-      acyclic: false
-      weighted: false
-    - n: 80
-      p_range:
-      - 0.05
-      - 0.2
-      k:
-      - 4
-      - 6
-      - 8
-      directed: false
-      acyclic: false
-      weighted: false
-    - n: 800
-      p_range:
-      - 0.05
-      - 0.2
-      k:
-      - 4
-      - 6
-      - 8
-      directed: false
-      acyclic: false
-      weighted: false
-    - n: 16
-      directed: false
-      acyclic: false
-      weighted: false
-    - n: 80
-      directed: false
-      acyclic: false
-      weighted: false
-    - n: 800
-      directed: false
-      acyclic: false
-      weighted: false
+      - n: 16
+        p_range:
+          - 0.173
+          - 0.52
+        directed: false
+        acyclic: false
+        weighted: false
+      - n: 80
+        p_range:
+          - 0.054
+          - 0.164
+        directed: false
+        acyclic: false
+        weighted: false
+      - n: 800
+        p_range:
+          - 0.008
+          - 0.025
+        directed: false
+        acyclic: false
+        weighted: false
+      - n: 16
+        p_range:
+          - 0.05
+          - 0.2
+        k:
+          - 4
+          - 6
+          - 8
+        directed: false
+        acyclic: false
+        weighted: false
+      - n: 80
+        p_range:
+          - 0.05
+          - 0.2
+        k:
+          - 4
+          - 6
+          - 8
+        directed: false
+        acyclic: false
+        weighted: false
+      - n: 800
+        p_range:
+          - 0.05
+          - 0.2
+        k:
+          - 4
+          - 6
+          - 8
+        directed: false
+        acyclic: false
+        weighted: false
+      - n: 16
+        directed: false
+        acyclic: false
+        weighted: false
+      - n: 80
+        directed: false
+        acyclic: false
+        weighted: false
+      - n: 800
+        directed: false
+        acyclic: false
+        weighted: false
 TRAIN:
   PRECISION: 16-mixed
   GRADIENT_CLIP_VAL: 0.1
@@ -262,7 +262,7 @@ TRAIN:
   CHECKPOINT_MONITOR_MODE: min
   BATCH_SIZE: 8
   ENABLE: true
-  NUM_WORKERS: 5
+  NUM_WORKERS: 4
   EARLY_STOPPING_PATIENCE: 3000
   OPTIMIZER:
     LR: 0.0004239
@@ -271,10 +271,10 @@ TRAIN:
     ENABLE: true
     NAME: ReduceLROnPlateau
     PARAMS:
-    - mode: min
-      factor: 0.1
-      patience: 10
-      verbose: true
+      - mode: min
+        factor: 0.1
+        patience: 10
+        verbose: true
     MONITOR: val/loss/ws_800
   GRADIENT_ACCUMULATION_STEPS: 1
 TEST:
