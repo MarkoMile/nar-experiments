@@ -235,7 +235,7 @@ def main():
 
     # --- Load model ---
     print(f"Loading checkpoint: {args.ckpt}")
-    model = SALSACLRSModel.load_from_checkpoint(args.ckpt, map_location=device)
+    model = SALSACLRSModel.load_from_checkpoint(args.ckpt, map_location=device, strict=False)
     cfg = model.cfg
     model.eval()
     model.to(device)
