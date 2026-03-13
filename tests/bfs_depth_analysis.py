@@ -125,6 +125,8 @@ def analyse_batch(batch, output, output_key, device):
     edge_index = batch.edge_index
     results = []
 
+    batch_degrees = torch.bincount(edge_index[0], minlength=batch.num_nodes)
+
     for g in range(batch.num_graphs):
         node_mask = (batch.batch == g)
         global_ids = torch.where(node_mask)[0]
@@ -146,12 +148,17 @@ def analyse_batch(batch, output, output_key, device):
         # Collect depths at which mistakes occur
         mistake_depths = gt_depths[~node_correct].tolist() if not graph_correct else []
 
+        graph_degrees = batch_degrees[global_ids].cpu().numpy()
+
         results.append({
             "n_nodes": n_nodes,
             "max_depth": max_depth,
             "graph_correct": bool(graph_correct),
             "n_wrong_nodes": int((~node_correct).sum()),
             "mistake_depths": mistake_depths,
+            "avg_graph_degree": float(graph_degrees.mean()) if n_nodes > 0 else 0.0,
+            "correct_degrees": graph_degrees[node_correct].tolist(),
+            "incorrect_degrees": graph_degrees[~node_correct].tolist(),
         })
 
     return results
@@ -171,19 +178,43 @@ def print_report(name, results):
     print(f"  Total graphs         : {len(results)}")
     print(f"  Correct predictions  : {len(correct)}")
     print(f"  Wrong predictions    : {len(wrong)}")
+    
+    all_degrees = [d for r in results for d in r.get("correct_degrees", []) + r.get("incorrect_degrees", [])]
+    if all_degrees:
+        print(f"  Total avg node degree: {np.mean(all_degrees):.2f}  (std {np.std(all_degrees):.2f})")
     print()
 
-    # --- avg depth ---
+    # --- avg depth & degree ---
     if correct:
         d = [r["max_depth"] for r in correct]
-        print(f"  Avg BFS depth (correct) : {np.mean(d):.2f}  (std {np.std(d):.2f})")
+        deg = [r["avg_graph_degree"] for r in correct]
+        print(f"  Avg BFS depth (correct graphs)  : {np.mean(d):.2f}  (std {np.std(d):.2f})")
+        print(f"  Avg node degree (correct graphs): {np.mean(deg):.2f}")
     else:
-        print(f"  Avg BFS depth (correct) : N/A")
+        print(f"  Avg BFS depth (correct graphs)  : N/A")
+        print(f"  Avg node degree (correct graphs): N/A")
     if wrong:
         d = [r["max_depth"] for r in wrong]
-        print(f"  Avg BFS depth (wrong)   : {np.mean(d):.2f}  (std {np.std(d):.2f})")
+        deg = [r["avg_graph_degree"] for r in wrong]
+        print(f"  Avg BFS depth (wrong graphs)    : {np.mean(d):.2f}  (std {np.std(d):.2f})")
+        print(f"  Avg node degree (wrong graphs)  : {np.mean(deg):.2f}")
     else:
-        print(f"  Avg BFS depth (wrong)   : N/A")
+        print(f"  Avg BFS depth (wrong graphs)    : N/A")
+        print(f"  Avg node degree (wrong graphs)  : N/A")
+
+    print()
+    all_corr_nod_deg = [d for r in results for d in r.get("correct_degrees", [])]
+    all_incorr_nod_deg = [d for r in results for d in r.get("incorrect_degrees", [])]
+
+    if all_corr_nod_deg:
+        print(f"  Avg node degree (correct nodes)   : {np.mean(all_corr_nod_deg):.2f}  (std {np.std(all_corr_nod_deg):.2f})")
+    else:
+        print(f"  Avg node degree (correct nodes)   : N/A")
+
+    if all_incorr_nod_deg:
+        print(f"  Avg node degree (incorrect nodes) : {np.mean(all_incorr_nod_deg):.2f}  (std {np.std(all_incorr_nod_deg):.2f})")
+    else:
+        print(f"  Avg node degree (incorrect nodes) : N/A")
 
     # --- mistake depth distribution ---
     if wrong:

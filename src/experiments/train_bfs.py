@@ -4,8 +4,8 @@ import os
 import sys
 
 # Prevent TensorFlow (imported transitively by dm-clrs) from pre-allocating all GPU memory
-os.environ["CUDA_VISIBLE_DEVICES_TF"] = os.environ.get("CUDA_VISIBLE_DEVICES", "0")
-os.environ["TF_FORCE_GPU_ALLOW_GROWTH"] = "true"
+# os.environ["CUDA_VISIBLE_DEVICES_TF"] = os.environ.get("CUDA_VISIBLE_DEVICES", "0")
+# os.environ["TF_FORCE_GPU_ALLOW_GROWTH"] = "true"
 
 # Reduce CUDA fragmentation for variable-size graph batches
 os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
