@@ -120,6 +120,7 @@ def train(model, datamodule, cfg, specs, seed=42, checkpoint_dir=None, enable_wa
             log_every_n_steps=3,
             check_val_every_n_epoch=50,
             gradient_clip_val=cfg.TRAIN.GRADIENT_CLIP_VAL,
+            accumulate_grad_batches=cfg.TRAIN.GRADIENT_ACCUMULATION_STEPS,
             fast_dev_run=fast_dev_run,
             reload_dataloaders_every_n_epochs=datamodule.reload_every_n_epochs,
             precision=cfg.TRAIN.PRECISION,
