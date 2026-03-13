@@ -1,0 +1,250 @@
+RUN_NAME: PGN-ablation-salsa-clrs-baseline
+ALGORITHM: bfs
+MODEL:
+  DECODER_USE_LAST_HIDDEN: true
+  PROCESSOR_USE_LAST_HIDDEN: true
+  HIDDEN_DIM: 128
+  EDGE_DECODER_FP64: false
+  HINT_INJECTION_MODE: additive
+  PROCESSOR:
+    NAME: PGN
+    RESIDUAL: false
+    KWARGS:
+    - aggr: max
+    LAYERNORM:
+      ENABLE: true
+      MODE: node
+  LATENT_NOISE_STD: 0.0
+  MSG_PASSING_STEPS: 1
+  TEACHER_FORCING:
+    ENABLE: false
+    HINT_DROPOUT: 0.4
+  AUTOREGRESSIVE:
+    ENABLE: false
+    POINTER: false
+  LAST_HIDDEN_MODE: current
+  GRU:
+    ENABLE: false
+DATA:
+  TRAIN:
+    NUM_SAMPLES:
+    - 10000
+    GRAPH_GENERATOR:
+    - er
+    START_EPOCH:
+    - 0
+    GENERATOR_PARAMS:
+    - p:
+      - 0.5
+      n: 16
+  VAL:
+    NUM_SAMPLES: 15
+    GRAPH_GENERATOR:
+    - er
+    - er
+    - er
+    - ws
+    - ws
+    - ws
+    - delaunay
+    - delaunay
+    - delaunay
+    NICKNAME:
+    - er_16
+    - er_80
+    - er_800
+    - ws_16
+    - ws_80
+    - ws_800
+    - delaunay_16
+    - delaunay_80
+    - delaunay_800
+    GENERATOR_PARAMS:
+    - n: 16
+      p_range:
+      - 0.173
+      - 0.52
+      directed: false
+      acyclic: false
+      weighted: false
+    - n: 80
+      p_range:
+      - 0.054
+      - 0.164
+      directed: false
+      acyclic: false
+      weighted: false
+    - n: 800
+      p_range:
+      - 0.008
+      - 0.025
+      directed: false
+      acyclic: false
+      weighted: false
+    - n: 16
+      p_range:
+      - 0.05
+      - 0.2
+      k:
+      - 4
+      - 6
+      - 8
+      directed: false
+      acyclic: false
+      weighted: false
+    - n: 80
+      p_range:
+      - 0.05
+      - 0.2
+      k:
+      - 4
+      - 6
+      - 8
+      directed: false
+      acyclic: false
+      weighted: false
+    - n: 800
+      p_range:
+      - 0.05
+      - 0.2
+      k:
+      - 4
+      - 6
+      - 8
+      directed: false
+      acyclic: false
+      weighted: false
+    - n: 16
+      directed: false
+      acyclic: false
+      weighted: false
+    - n: 80
+      directed: false
+      acyclic: false
+      weighted: false
+    - n: 800
+      directed: false
+      acyclic: false
+      weighted: false
+  TEST:
+    NUM_SAMPLES: 15
+    GRAPH_GENERATOR:
+    - er
+    - er
+    - er
+    - ws
+    - ws
+    - ws
+    - delaunay
+    - delaunay
+    - delaunay
+    NICKNAME:
+    - er_16
+    - er_80
+    - er_800
+    - ws_16
+    - ws_80
+    - ws_800
+    - delaunay_16
+    - delaunay_80
+    - delaunay_800
+    GENERATOR_PARAMS:
+    - n: 16
+      p_range:
+      - 0.173
+      - 0.52
+      directed: false
+      acyclic: false
+      weighted: false
+    - n: 80
+      p_range:
+      - 0.054
+      - 0.164
+      directed: false
+      acyclic: false
+      weighted: false
+    - n: 800
+      p_range:
+      - 0.008
+      - 0.025
+      directed: false
+      acyclic: false
+      weighted: false
+    - n: 16
+      p_range:
+      - 0.05
+      - 0.2
+      k:
+      - 4
+      - 6
+      - 8
+      directed: false
+      acyclic: false
+      weighted: false
+    - n: 80
+      p_range:
+      - 0.05
+      - 0.2
+      k:
+      - 4
+      - 6
+      - 8
+      directed: false
+      acyclic: false
+      weighted: false
+    - n: 800
+      p_range:
+      - 0.05
+      - 0.2
+      k:
+      - 4
+      - 6
+      - 8
+      directed: false
+      acyclic: false
+      weighted: false
+    - n: 16
+      directed: false
+      acyclic: false
+      weighted: false
+    - n: 80
+      directed: false
+      acyclic: false
+      weighted: false
+    - n: 800
+      directed: false
+      acyclic: false
+      weighted: false
+TRAIN:
+  PRECISION: 16-mixed
+  GRADIENT_CLIP_VAL: 1.0
+  LOSS:
+    OUTPUT_LOSS_WEIGHT: 1.0
+    HINT_LOSS_WEIGHT: 0.0
+    HIDDEN_LOSS_WEIGHT: 0.01
+  MAX_EPOCHS: 100
+  CHECKPOINT_MONITOR: val/loss/ws_800
+  CHECKPOINT_MONITOR_MODE: min
+  BATCH_SIZE: 8
+  ENABLE: true
+  NUM_WORKERS: 4
+  EARLY_STOPPING_PATIENCE: 30
+  OPTIMIZER:
+    LR: 0.0004239
+    WEIGHT_DECAY: 0.0
+  SCHEDULER:
+    ENABLE: true
+    NAME: ReduceLROnPlateau
+    PARAMS:
+    - mode: min
+      factor: 0.1
+      patience: 10
+      verbose: true
+    MONITOR: val/loss/ws_800
+  GRADIENT_ACCUMULATION_STEPS: 1
+TEST:
+  BATCH_SIZE: 8
+LOGGING:
+  WANDB:
+    PROJECT: nar-experiments-finetuning
+    GROUP: PGN
