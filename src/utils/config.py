@@ -25,7 +25,7 @@ _C.MODEL.PROCESSOR_USE_LAST_HIDDEN = False
 _C.MODEL.LAST_HIDDEN_MODE = "current"  # "current" = set before processor (SALSA-CLRS default), "previous" = carry from previous step's GRU output
 
 _C.MODEL.LATENT_NOISE_STD = 0.0  # Gaussian noise σ injected into hidden state (0.0 = disabled)
-_C.MODEL.EDGE_DECODER_FP64 = True  # Use float64 math inside edge decoders (more stable, much higher memory)
+_C.MODEL.EDGE_DECODER_FP64 = False  # Use float64 math inside edge decoders (more stable, much higher memory)
 
 _C.MODEL.GRU = CN()
 _C.MODEL.GRU.ENABLE = False
@@ -40,7 +40,7 @@ _C.MODEL.TEACHER_FORCING.CURRICULUM.END_DROPOUT = 0.5
 
 _C.MODEL.AUTOREGRESSIVE = CN()
 _C.MODEL.AUTOREGRESSIVE.ENABLE = False
-_C.MODEL.AUTOREGRESSIVE.POINTER = True  # With AR enabled: True = include pi_h in TF+AR paths, False = exclude pi_h from both TF+AR paths.
+_C.MODEL.AUTOREGRESSIVE.POINTER = False  # With AR enabled: True = include pi_h in TF+AR paths, False = exclude pi_h from both TF+AR paths.
 _C.MODEL.AUTOREGRESSIVE.POINTER_MODE = "soft"  # "soft" = exp(log_softmax) probs, "hard" = argmax one-hot per source node
 
 # How encoded hints are injected into the processor:
