@@ -24,7 +24,6 @@ src/configs/bfs/deprecated/*
 lightning_logs/*
 
 # Model checkpoints & weights
-*.ckpt
 *.pth
 checkpoints/
 saved_models/
