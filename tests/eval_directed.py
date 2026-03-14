@@ -123,25 +123,28 @@ def main():
     # Override the test dataset configuration to strictly evaluate directed citation-style graphs
     cfg.DATA.TEST.NUM_SAMPLES = args.num_samples
     cfg.DATA.TEST.GRAPH_GENERATOR = [
-        "scale_free", "scale_free", "scale_free", 
-        "gn", "gn", "gn", 
-        "gnr", "gnr", "gnr"
+        "scale_free", "scale_free", "scale_free", "scale_free", 
+        "gn", "gn", "gn", "gn", 
+        "gnr", "gnr", "gnr", "gnr"
     ]
     cfg.DATA.TEST.NICKNAME = [
-        "sf_16", "sf_80", "sf_800", 
-        "gn_16", "gn_80", "gn_800", 
-        "gnr_16", "gnr_80", "gnr_800"
+        "sf_16", "sf_80", "sf_800", "sf_1600",
+        "gn_16", "gn_80", "gn_800", "gn_1600",
+        "gnr_16", "gnr_80", "gnr_800", "gnr_1600"
     ]
     cfg.DATA.TEST.GENERATOR_PARAMS = [
         {"n": 16, "alpha": 0.41, "beta": 0.54, "gamma": 0.05, "connected": True},
         {"n": 80, "alpha": 0.41, "beta": 0.54, "gamma": 0.05, "connected": True},
         {"n": 800, "alpha": 0.41, "beta": 0.54, "gamma": 0.05, "connected": True},
+        {"n": 1600, "alpha": 0.41, "beta": 0.54, "gamma": 0.05, "connected": True},
         {"n": 16},
         {"n": 80},
         {"n": 800},
+        {"n": 1600},
         {"n": 16, "p": 0.5},
         {"n": 80, "p": 0.5},
-        {"n": 800, "p": 0.5}
+        {"n": 800, "p": 0.5},
+        {"n": 1600, "p": 0.5}
     ]
 
     # Load Data

@@ -114,6 +114,22 @@ def main():
     # Get cfg directly from the loaded model
     cfg = model.cfg
 
+    # Add 1600-node graphs to TEST manually if they are not already there
+    if "er_1600" not in cfg.DATA.TEST.NICKNAME:
+        cfg.DATA.TEST.GRAPH_GENERATOR.append("er")
+        cfg.DATA.TEST.NICKNAME.append("er_1600")
+        cfg.DATA.TEST.GENERATOR_PARAMS.append({"n": 1600, "p_range": [0.004, 0.0125], "directed": False, "acyclic": False, "weighted": False})
+        
+    if "ws_1600" not in cfg.DATA.TEST.NICKNAME:
+        cfg.DATA.TEST.GRAPH_GENERATOR.append("ws")
+        cfg.DATA.TEST.NICKNAME.append("ws_1600")
+        cfg.DATA.TEST.GENERATOR_PARAMS.append({"n": 1600, "p_range": [0.05, 0.2], "k": [4, 6, 8], "directed": False, "acyclic": False, "weighted": False})
+        
+    if "delaunay_1600" not in cfg.DATA.TEST.NICKNAME:
+        cfg.DATA.TEST.GRAPH_GENERATOR.append("delaunay")
+        cfg.DATA.TEST.NICKNAME.append("delaunay_1600")
+        cfg.DATA.TEST.GENERATOR_PARAMS.append({"n": 1600, "directed": False, "acyclic": False, "weighted": False})
+
     # Load Data
     logger.info("Loading test datasets...")
     test_datasets_dict = get_dataset("test", cfg)
