@@ -240,7 +240,7 @@ TRAIN:
         factor: 0.1
         patience: 10
         verbose: true
-    MONITOR: val/loss/ws_800
+    MONITOR: train/loss
   GRADIENT_ACCUMULATION_STEPS: 1
 TEST:
   BATCH_SIZE: 8
