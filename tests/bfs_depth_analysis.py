@@ -1,7 +1,7 @@
 """
 BFS Depth Analysis on various graph families.
 
-Rolls out a trained model on multiple graph types (WS-80, WS-800, ER-800)
+Rolls out a trained model on multiple graph types (WS-1600, ER-1600, Delaunay-1600)
 and reports:
   - Average BFS tree depth of correct vs incorrect graphs.
   - At which BFS depths the prediction mistakes occur.
@@ -40,22 +40,6 @@ from salsaclrs import SALSACLRSDataset, SALSACLRSDataModule
 # ---------------------------------------------------------------------------
 
 GRAPH_CONFIGS = {
-    "ws_80": {
-        "graph_generator": "ws",
-        "graph_generator_kwargs": {"p_range": [0.05, 0.2], "k": [4, 6, 8], "n": 80},
-    },
-    "ws_800": {
-        "graph_generator": "ws",
-        "graph_generator_kwargs": {"p_range": [0.05, 0.2], "k": [4, 6, 8], "n": 800},
-    },
-    "er_800": {
-        "graph_generator": "er",
-        "graph_generator_kwargs": {"p_range": [0.008, 0.025], "n": 800},
-    },
-    "delaunay_800": {
-        "graph_generator": "delaunay",
-        "graph_generator_kwargs": {"n": 800},
-    },
     "ws_1600": {
         "graph_generator": "ws",
         "graph_generator_kwargs": {"p_range": [0.05, 0.2], "k": [4, 6, 8], "n": 1600},
@@ -156,6 +140,7 @@ def analyse_batch(batch, output, output_key, device):
             "graph_correct": bool(graph_correct),
             "n_wrong_nodes": int((~node_correct).sum()),
             "mistake_depths": mistake_depths,
+            "all_depths": gt_depths.tolist(),
             "avg_graph_degree": float(graph_degrees.mean()) if n_nodes > 0 else 0.0,
             "correct_degrees": graph_degrees[node_correct].tolist(),
             "incorrect_degrees": graph_degrees[~node_correct].tolist(),
@@ -219,13 +204,20 @@ def print_report(name, results):
     # --- mistake depth distribution ---
     if wrong:
         all_mistake_depths = []
+        all_graph_depths = []
         for r in wrong:
             all_mistake_depths.extend(r["mistake_depths"])
+            all_graph_depths.extend(r["all_depths"])
 
         if all_mistake_depths:
             depth_counts = defaultdict(int)
             for d in all_mistake_depths:
                 depth_counts[d] += 1
+                
+            total_depth_counts = defaultdict(int)
+            for d in all_graph_depths:
+                total_depth_counts[d] += 1
+                
             max_d = max(depth_counts.keys())
 
             # Avg wrong nodes per wrong graph
@@ -233,14 +225,16 @@ def print_report(name, results):
             print(f"\n  Avg wrong nodes / wrong graph : {avg_wrong_nodes:.1f}")
 
             print(f"\n  Mistake depth distribution (across all wrong graphs):")
-            print(f"  {'Depth':>6}  {'Count':>7}  {'%':>7}  Bar")
-            print(f"  {'-'*6}  {'-'*7}  {'-'*7}  {'-'*30}")
-            total = len(all_mistake_depths)
+            print(f"  {'Depth':>6}  {'Total N':>7}  {'Mistks':>7}  {'% Error':>7}  Bar")
+            print(f"  {'-'*6}  {'-'*7}  {'-'*7}  {'-'*7}  {'-'*30}")
+            total_mistakes = len(all_mistake_depths)
             for d in range(max_d + 1):
                 c = depth_counts.get(d, 0)
-                pct = 100.0 * c / total if total else 0
-                bar = "█" * int(pct / 2)
-                print(f"  {d:>6}  {c:>7}  {pct:>6.1f}%  {bar}")
+                tot_n = total_depth_counts.get(d, 0)
+                pct_err = 100.0 * c / tot_n if tot_n else 0.0
+                pct_all_mistakes = 100.0 * c / total_mistakes if total_mistakes else 0
+                bar = "█" * int(pct_all_mistakes / 2)
+                print(f"  {d:>6}  {tot_n:>7}  {c:>7}  {pct_err:>6.1f}%  {bar}")
 
     print(f"{'=' * 64}")
 
