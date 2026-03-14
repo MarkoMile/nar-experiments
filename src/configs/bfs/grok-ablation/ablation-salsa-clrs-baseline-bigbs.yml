@@ -1,10 +1,10 @@
-RUN_NAME: PGN-ablation-salsa-scheduler-bs
+RUN_NAME: ablation-salsa-clrs-baseline-bigbs
 ALGORITHM: bfs
 MODEL:
   DECODER_USE_LAST_HIDDEN: true
   PROCESSOR_USE_LAST_HIDDEN: true
-  HIDDEN_DIM: 256
-  EDGE_DECODER_FP64: true
+  HIDDEN_DIM: 128
+  EDGE_DECODER_FP64: false
   HINT_INJECTION_MODE: additive
   PROCESSOR:
     NAME: PGN
@@ -14,64 +14,29 @@ MODEL:
     LAYERNORM:
       ENABLE: true
       MODE: node
-  LATENT_NOISE_STD: 0.015
+  LATENT_NOISE_STD: 0.0
   MSG_PASSING_STEPS: 1
   TEACHER_FORCING:
-    ENABLE: true
+    ENABLE: false
     HINT_DROPOUT: 0.4
   AUTOREGRESSIVE:
-    ENABLE: true
+    ENABLE: false
     POINTER: false
   LAST_HIDDEN_MODE: current
   GRU:
-    ENABLE: true
+    ENABLE: false
 DATA:
   TRAIN:
     NUM_SAMPLES:
-      - 16667
-      - 16667
-      - 16666
+      - 10000
     GRAPH_GENERATOR:
       - er
-      - ws
-      - delaunay
+    START_EPOCH:
+      - 0
     GENERATOR_PARAMS:
-      - n:
-          - 4
-          - 7
-          - 11
-          - 13
-          - 16
-        p_range:
-          - 0.17
-          - 0.52
-        directed: false
-        acyclic: false
-        weighted: false
-      - n:
-          - 11
-          - 13
-          - 16
-          - 20
-        p_range:
-          - 0.05
-          - 0.2
-        k:
-          - 4
-          - 6
-          - 8
-        directed: false
-        acyclic: false
-        weighted: false
-      - n:
-          - 4
-          - 7
-          - 11
-          - 13
-          - 16
-        directed: false
-        acyclic: false
-        weighted: false
+      - p:
+          - 0.5
+        n: 16
   VAL:
     NUM_SAMPLES: 15
     GRAPH_GENERATOR:
@@ -252,21 +217,21 @@ DATA:
         weighted: false
 TRAIN:
   PRECISION: 16-mixed
-  GRADIENT_CLIP_VAL: 0.1
+  GRADIENT_CLIP_VAL: 1.0
   LOSS:
     OUTPUT_LOSS_WEIGHT: 1.0
-    HINT_LOSS_WEIGHT: 1.0
-    HIDDEN_LOSS_WEIGHT: 0.0
-  MAX_EPOCHS: 3000
+    HINT_LOSS_WEIGHT: 0.0
+    HIDDEN_LOSS_WEIGHT: 0.01
+  MAX_EPOCHS: 100
   CHECKPOINT_MONITOR: val/loss/ws_800
   CHECKPOINT_MONITOR_MODE: min
-  BATCH_SIZE: 8
+  BATCH_SIZE: 2048
   ENABLE: true
   NUM_WORKERS: 4
-  EARLY_STOPPING_PATIENCE: 3000
+  EARLY_STOPPING_PATIENCE: 30
   OPTIMIZER:
     LR: 0.0004239
-    WEIGHT_DECAY: 0.09
+    WEIGHT_DECAY: 0.0
   SCHEDULER:
     ENABLE: true
     NAME: ReduceLROnPlateau
@@ -278,7 +243,7 @@ TRAIN:
     MONITOR: train/loss
   GRADIENT_ACCUMULATION_STEPS: 1
 TEST:
-  BATCH_SIZE: 15
+  BATCH_SIZE: 8
 LOGGING:
   WANDB:
     PROJECT: nar-experiments-finetuning

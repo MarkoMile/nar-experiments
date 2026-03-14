@@ -1,0 +1,285 @@
+RUN_NAME: ablation-salsa-scheduler-smallbs
+ALGORITHM: bfs
+MODEL:
+  DECODER_USE_LAST_HIDDEN: true
+  PROCESSOR_USE_LAST_HIDDEN: true
+  HIDDEN_DIM: 256
+  EDGE_DECODER_FP64: true
+  HINT_INJECTION_MODE: additive
+  PROCESSOR:
+    NAME: PGN
+    RESIDUAL: false
+    KWARGS:
+      - aggr: max
+    LAYERNORM:
+      ENABLE: true
+      MODE: node
+  LATENT_NOISE_STD: 0.015
+  MSG_PASSING_STEPS: 1
+  TEACHER_FORCING:
+    ENABLE: true
+    HINT_DROPOUT: 0.4
+  AUTOREGRESSIVE:
+    ENABLE: true
+    POINTER: false
+  LAST_HIDDEN_MODE: current
+  GRU:
+    ENABLE: true
+DATA:
+  TRAIN:
+    NUM_SAMPLES:
+      - 16667
+      - 16667
+      - 16666
+    GRAPH_GENERATOR:
+      - er
+      - ws
+      - delaunay
+    GENERATOR_PARAMS:
+      - n:
+          - 4
+          - 7
+          - 11
+          - 13
+          - 16
+        p_range:
+          - 0.17
+          - 0.52
+        directed: false
+        acyclic: false
+        weighted: false
+      - n:
+          - 11
+          - 13
+          - 16
+          - 20
+        p_range:
+          - 0.05
+          - 0.2
+        k:
+          - 4
+          - 6
+          - 8
+        directed: false
+        acyclic: false
+        weighted: false
+      - n:
+          - 4
+          - 7
+          - 11
+          - 13
+          - 16
+        directed: false
+        acyclic: false
+        weighted: false
+  VAL:
+    NUM_SAMPLES: 15
+    GRAPH_GENERATOR:
+      - er
+      - er
+      - er
+      - ws
+      - ws
+      - ws
+      - delaunay
+      - delaunay
+      - delaunay
+    NICKNAME:
+      - er_16
+      - er_80
+      - er_800
+      - ws_16
+      - ws_80
+      - ws_800
+      - delaunay_16
+      - delaunay_80
+      - delaunay_800
+    GENERATOR_PARAMS:
+      - n: 16
+        p_range:
+          - 0.173
+          - 0.52
+        directed: false
+        acyclic: false
+        weighted: false
+      - n: 80
+        p_range:
+          - 0.054
+          - 0.164
+        directed: false
+        acyclic: false
+        weighted: false
+      - n: 800
+        p_range:
+          - 0.008
+          - 0.025
+        directed: false
+        acyclic: false
+        weighted: false
+      - n: 16
+        p_range:
+          - 0.05
+          - 0.2
+        k:
+          - 4
+          - 6
+          - 8
+        directed: false
+        acyclic: false
+        weighted: false
+      - n: 80
+        p_range:
+          - 0.05
+          - 0.2
+        k:
+          - 4
+          - 6
+          - 8
+        directed: false
+        acyclic: false
+        weighted: false
+      - n: 800
+        p_range:
+          - 0.05
+          - 0.2
+        k:
+          - 4
+          - 6
+          - 8
+        directed: false
+        acyclic: false
+        weighted: false
+      - n: 16
+        directed: false
+        acyclic: false
+        weighted: false
+      - n: 80
+        directed: false
+        acyclic: false
+        weighted: false
+      - n: 800
+        directed: false
+        acyclic: false
+        weighted: false
+  TEST:
+    NUM_SAMPLES: 15
+    GRAPH_GENERATOR:
+      - er
+      - er
+      - er
+      - ws
+      - ws
+      - ws
+      - delaunay
+      - delaunay
+      - delaunay
+    NICKNAME:
+      - er_16
+      - er_80
+      - er_800
+      - ws_16
+      - ws_80
+      - ws_800
+      - delaunay_16
+      - delaunay_80
+      - delaunay_800
+    GENERATOR_PARAMS:
+      - n: 16
+        p_range:
+          - 0.173
+          - 0.52
+        directed: false
+        acyclic: false
+        weighted: false
+      - n: 80
+        p_range:
+          - 0.054
+          - 0.164
+        directed: false
+        acyclic: false
+        weighted: false
+      - n: 800
+        p_range:
+          - 0.008
+          - 0.025
+        directed: false
+        acyclic: false
+        weighted: false
+      - n: 16
+        p_range:
+          - 0.05
+          - 0.2
+        k:
+          - 4
+          - 6
+          - 8
+        directed: false
+        acyclic: false
+        weighted: false
+      - n: 80
+        p_range:
+          - 0.05
+          - 0.2
+        k:
+          - 4
+          - 6
+          - 8
+        directed: false
+        acyclic: false
+        weighted: false
+      - n: 800
+        p_range:
+          - 0.05
+          - 0.2
+        k:
+          - 4
+          - 6
+          - 8
+        directed: false
+        acyclic: false
+        weighted: false
+      - n: 16
+        directed: false
+        acyclic: false
+        weighted: false
+      - n: 80
+        directed: false
+        acyclic: false
+        weighted: false
+      - n: 800
+        directed: false
+        acyclic: false
+        weighted: false
+TRAIN:
+  PRECISION: 16-mixed
+  GRADIENT_CLIP_VAL: 0.1
+  LOSS:
+    OUTPUT_LOSS_WEIGHT: 1.0
+    HINT_LOSS_WEIGHT: 1.0
+    HIDDEN_LOSS_WEIGHT: 0.0
+  MAX_EPOCHS: 3000
+  CHECKPOINT_MONITOR: val/loss/ws_800
+  CHECKPOINT_MONITOR_MODE: min
+  BATCH_SIZE: 8
+  ENABLE: true
+  NUM_WORKERS: 4
+  EARLY_STOPPING_PATIENCE: 3000
+  OPTIMIZER:
+    LR: 0.0004239
+    WEIGHT_DECAY: 0.09
+  SCHEDULER:
+    ENABLE: true
+    NAME: ReduceLROnPlateau
+    PARAMS:
+      - mode: min
+        factor: 0.1
+        patience: 10
+        verbose: true
+    MONITOR: train/loss
+  GRADIENT_ACCUMULATION_STEPS: 1
+TEST:
+  BATCH_SIZE: 15
+LOGGING:
+  WANDB:
+    PROJECT: nar-experiments-finetuning
+    GROUP: salsa-ablation
