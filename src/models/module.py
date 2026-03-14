@@ -256,6 +256,8 @@ class SALSACLRSModel(pl.LightningModule):
         if self.cfg.TRAIN.SCHEDULER.ENABLE:
             try:
                 scheduler_params = dict(self.cfg.TRAIN.SCHEDULER.PARAMS[0])
+                if 'verbose' in scheduler_params:
+                    del scheduler_params['verbose']
                 scheduler = getattr(torch.optim.lr_scheduler, self.cfg.TRAIN.SCHEDULER.NAME)(optimizer, **scheduler_params)
 
                 interval = getattr(self.cfg.TRAIN.SCHEDULER, 'INTERVAL', 'epoch')
