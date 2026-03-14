@@ -57,9 +57,13 @@ def format_results_table(results):
         # Fallback if names don't match the pattern
         return "\n".join(f"{k}: {v:.4f}" for k, v in merged_results.items())
 
+    import re
+    def natural_sort_key(s):
+        return [int(text) if text.isdigit() else text.lower() for text in re.split(r'(\d+)', s)]
+
     # Sort names for consistent columns
     metric_names = sorted(list(metric_names))
-    dataset_names = sorted(list(datasets_metrics.keys()))
+    dataset_names = sorted(list(datasets_metrics.keys()), key=natural_sort_key)
 
     # Build the table
     col_width = max(len(name) for name in dataset_names) + 2
