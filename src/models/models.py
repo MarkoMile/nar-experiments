@@ -610,7 +610,12 @@ class EncodeProcessDecode(torch.nn.Module):
                 if step == 0:
                     encoded_hint_ar = torch.zeros_like(hidden)
                 else:
-                    prev_hints = hints[-1]
+                    if len(hints) > 0:
+                        prev_hints = hints[-1]
+                    else:
+                        # Fallback if HINT_LOSS_WEIGHT == 0.0 and hints weren't computed
+                        prev_hints = self.decoder(stack_hidden(input_hidden, hidden, last_hidden_carry if last_hidden_mode == "previous" else input_hidden, self.cfg.MODEL.DECODER_USE_LAST_HIDDEN), batch, 'hints')
+                        
                     encoded_hint_ar = None
                     for key in self.hint_encoder.encoder.keys():
                         if key not in prev_hints:

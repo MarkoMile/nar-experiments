@@ -1,4 +1,4 @@
-RUN_NAME: "ablation-baseline-nohints"
+RUN_NAME: "ablation-baseline-nohints-noartf"
 ALGORITHM: "bfs"
 MODEL:
   DECODER_USE_LAST_HIDDEN: True
@@ -16,10 +16,10 @@ MODEL:
   LATENT_NOISE_STD: 0.015
   MSG_PASSING_STEPS: 1
   TEACHER_FORCING:
-    ENABLE: True
+    ENABLE: False
     HINT_DROPOUT: 0.4
   AUTOREGRESSIVE:
-    ENABLE: True
+    ENABLE: False
     POINTER: False
   LAST_HIDDEN_MODE: "current"
   GRU:
