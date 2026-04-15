@@ -1,4 +1,4 @@
-RUN_NAME: "PGN-grokking-85f8d0f-repro-er-only"
+RUN_NAME: "multiseed-eval"
 ALGORITHM: "bfs"
 MODEL:
   DECODER_USE_LAST_HIDDEN: True
@@ -88,4 +88,4 @@ TEST:
 LOGGING:
   WANDB:
     PROJECT: "nar-experiments-finetuning"
-    GROUP: "PGN"
+    GROUP: "multiseed"
