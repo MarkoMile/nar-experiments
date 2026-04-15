@@ -110,7 +110,7 @@ def patched_bfs_sample_data(self):
 BfsSampler._sample_data = patched_bfs_sample_data
 
 
-def get_dataset(split: str, cfg: CfgNode = None):
+def get_dataset(split: str, cfg: CfgNode = None, seed: int = 42):
     """
     Load a SALSA-CLRS dataset for a specific split using the project config.
 
@@ -132,7 +132,7 @@ def get_dataset(split: str, cfg: CfgNode = None):
         cfg = get_cfg_defaults()
 
     algorithm = cfg.ALGORITHM
-    root = os.path.join(cfg.DATA.ROOT, "salsaclrs")
+    root = os.path.join(cfg.DATA.ROOT, "salsaclrs", f"seed_{seed}")
 
     # Ensure the data directory exists
     os.makedirs(root, exist_ok=True)
