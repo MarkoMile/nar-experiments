@@ -281,9 +281,9 @@ if __name__ == '__main__':
     torch.set_float32_matmul_precision('medium')
 
     # load datasets
-    train_ds = get_dataset("train",cfg)
-    val_ds = get_dataset("val",cfg)
-    test_datasets = get_dataset("test",cfg)
+    train_ds = get_dataset("train", cfg, seed=args.seed)
+    val_ds = get_dataset("val", cfg, seed=args.seed)
+    test_datasets = get_dataset("test", cfg, seed=args.seed)
     specs = train_ds.specs
     
     # load model
