@@ -136,7 +136,7 @@ def main():
 
     # Load Data
     logger.info("Loading test datasets...")
-    test_datasets_dict = get_dataset("test", cfg)
+    test_datasets_dict = get_dataset("test", cfg, seed=args.seed)
     
     datamodule = SALSACLRSDataModule(
         train_dataset=None,  # Not needed for testing
