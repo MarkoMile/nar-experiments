@@ -30,7 +30,7 @@ def efficient_to_sparse_data(inputs, hints, outputs, use_hints=True):
     input_attributes = []
     hint_attributes = []
     output_attributes = []
-    data_dict['length'] = hints[0].data.shape[0] if use_hints and len(hints) > 0 else 0
+    data_dict['length'] = hints[0].data.shape[0] if use_hints and len(hints) > 0 else outputs[0].data.shape[0]
     # first get the edge index
     for dp in inputs:
         if dp.name == "adj":

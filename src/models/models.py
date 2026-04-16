@@ -726,7 +726,7 @@ class EncodeProcessDecode(torch.nn.Module):
             # Check if output needs to be constructed
             if (batch.length == step+1).sum() > 0:
                 # Decode outputs
-                if self.cfg.TRAIN.LOSS.HINT_LOSS_WEIGHT > 0.0:
+                if self.cfg.TRAIN.LOSS.HINT_LOSS_WEIGHT > 0.0 and len(batch.hints) > 0:
                     # The last hint is the output, no need to decode again, its the same decoder
                     output_step = grab_outputs(hints[-1], batch)
                 else:
