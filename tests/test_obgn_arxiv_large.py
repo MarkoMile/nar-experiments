@@ -15,6 +15,105 @@ import lightning.pytorch as pl
 # Add project root to sys.path so absolute imports work
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
+# ==============================================================================
+# MONKEYPATCH: salsaclrs.data.to_sparse_data memory leak fix
+# Bypasses the O(N^2) memory allocation when converting Node Pointers to
+# one-hot matrices. Crucial for massive graphs (like Arxiv 169k nodes).
+# ==============================================================================
+def efficient_to_sparse_data(inputs, hints, outputs, use_hints=True):
+    import clrs
+    from scipy.sparse import coo_matrix
+    from torch_geometric.utils.convert import from_scipy_sparse_matrix
+    from salsaclrs.data import infer_type, verify_sparseness, pointer_to_one_hot, to_torch, CLRSData
+    
+    data_dict = {}
+    input_attributes = []
+    hint_attributes = []
+    output_attributes = []
+    data_dict['length'] = hints[0].data.shape[0] if use_hints and len(hints) > 0 else 0
+    # first get the edge index
+    for dp in inputs:
+        if dp.name == "adj":
+            edge_index, _ = from_scipy_sparse_matrix(coo_matrix(dp.data[0]))
+            data_dict['edge_index'] = edge_index
+            
+    # Parse inputs
+    for dp in inputs:
+        if dp.name == "adj":
+            continue
+        elif dp.name == "A":
+            unique_values = np.unique(dp.data[0])
+            is_weighted = unique_values.size != 2 or not np.all(unique_values == np.array([0,1]))
+            if is_weighted:
+                data_dict["weights"] = infer_type("A", (dp.data[0] + np.eye(dp.data[0].shape[0]))[data_dict["edge_index"][0], data_dict["edge_index"][1]])
+        elif dp.location == clrs.Location.EDGE:
+            verify_sparseness(dp.data[0], data_dict["edge_index"], dp.name)
+            data_dict[dp.name] = infer_type(dp.type_, dp.data[0][data_dict["edge_index"][0], data_dict["edge_index"][1]])
+            input_attributes.append(dp.name)
+        elif dp.location == clrs.Location.NODE:
+            if dp.type_ == clrs.Type.POINTER:
+                pointer_arr = dp.data[0] # (N,)
+                edge_mask = (data_dict["edge_index"][1].numpy() == pointer_arr[data_dict["edge_index"][0].numpy()]).astype(float)
+                data_dict[dp.name] = infer_type(dp.type_, edge_mask)
+            else:
+                data_dict[dp.name] = infer_type(dp.type_, dp.data[0])
+            input_attributes.append(dp.name)
+        else: # Graph
+            data_dict[dp.name] = infer_type(dp.type_, dp.data[0])
+            
+    # Parse outputs
+    for dp in outputs:
+        output_attributes.append(dp.name)
+        if dp.location == clrs.Location.EDGE:
+            data_dict[dp.name] = infer_type(dp.type_, dp.data[0][data_dict["edge_index"][0], data_dict["edge_index"][1]])
+        elif dp.location == clrs.Location.NODE:
+            if dp.type_ == clrs.Type.POINTER:
+                pointer_arr = dp.data[0] # (N,)
+                edge_mask = (data_dict["edge_index"][1].numpy() == pointer_arr[data_dict["edge_index"][0].numpy()]).astype(float)
+                data_dict[dp.name] = infer_type(dp.type_, edge_mask)
+            else:
+                data_dict[dp.name] = infer_type(dp.type_, dp.data[0])
+        else: # Graph
+            data_dict[dp.name] = infer_type(dp.type_, dp.data[0])
+            
+    if use_hints:
+        # Parse hints
+        for dp in hints:
+            hint_attributes.append(dp.name)
+            if dp.location == clrs.Location.EDGE or (dp.location == clrs.Location.NODE and dp.type_ == clrs.Type.POINTER):
+                arr = dp.data.squeeze(1) # Hints, N, N or Hints, N
+                if dp.location == clrs.Location.NODE: # Pointer
+                    src = data_dict["edge_index"][0].numpy()
+                    tgt = data_dict["edge_index"][1].numpy()
+                    masks = (arr[:, src] == tgt[None, :]).astype(float).T
+                    data_dict[dp.name] = infer_type(dp.type_, masks)
+                else: # Edge
+                    # Provide sparse conversion explicitly avoiding NxN memory bloat
+                    num_dims = arr.ndim
+                    transpose_indices = tuple(range(num_dims))
+                    transpose_indices = (1, 2, 0) + transpose_indices[3:]
+                    data_dict[dp.name] = infer_type(dp.type_, arr.transpose(*transpose_indices)[data_dict["edge_index"][0].numpy(), data_dict["edge_index"][1].numpy()])
+            elif dp.location == clrs.Location.NODE and not dp.type_ == clrs.Type.POINTER:
+                arr = dp.data.squeeze(1) # Hints, N, D (...)
+                num_dims = arr.ndim
+                transpose_indices = tuple(range(num_dims))
+                transpose_indices = (1, 0) + transpose_indices[2:]
+                data_dict[dp.name] = infer_type(dp.type_, arr.transpose(*transpose_indices))
+            else:
+                data_dict[dp.name] = infer_type(dp.type_, dp.data.squeeze(1)[np.newaxis, ...])
+
+    data_dict = {k: to_torch(v) for k,v in data_dict.items()}
+    data = CLRSData(**data_dict)    
+    data.hints = hint_attributes
+    data.inputs = input_attributes
+    data.outputs = output_attributes
+    return data
+
+import salsaclrs.data
+salsaclrs.data.to_sparse_data = efficient_to_sparse_data
+# ==============================================================================
+
+
 from src.models.module import SALSACLRSModel
 from src.utils.graph_generation import get_dataset
 from salsaclrs import SALSACLRSDataModule
