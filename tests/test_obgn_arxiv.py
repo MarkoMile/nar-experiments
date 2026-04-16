@@ -5,4 +5,3 @@
 # - Logic to sample random subgraphs from the arxiv citation graph.
 # - Running the BFS task on these subgraphs.
 # - Evaluating the model's performance on this out-of-distribution data.
-# - Comparison metrics between training distribution and the arxiv subgraphs.
