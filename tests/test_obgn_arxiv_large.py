@@ -48,7 +48,14 @@ def efficient_to_sparse_data(inputs, hints, outputs, use_hints=True):
                 data_dict["weights"] = infer_type("A", (dp.data[0] + np.eye(dp.data[0].shape[0]))[data_dict["edge_index"][0], data_dict["edge_index"][1]])
         elif dp.location == clrs.Location.EDGE:
             verify_sparseness(dp.data[0], data_dict["edge_index"], dp.name)
-            data_dict[dp.name] = infer_type(dp.type_, dp.data[0][data_dict["edge_index"][0], data_dict["edge_index"][1]])
+            sliced_edge_data = dp.data[0][data_dict["edge_index"][0], data_dict["edge_index"][1]]
+            if hasattr(sliced_edge_data, "toarray"):
+                sliced_edge_data = sliced_edge_data.toarray()
+            if isinstance(sliced_edge_data, np.matrix):
+                sliced_edge_data = np.asarray(sliced_edge_data).flatten()
+            elif isinstance(sliced_edge_data, np.ndarray):
+                sliced_edge_data = sliced_edge_data.flatten()
+            data_dict[dp.name] = infer_type(dp.type_, sliced_edge_data)
             input_attributes.append(dp.name)
         elif dp.location == clrs.Location.NODE:
             if dp.type_ == clrs.Type.POINTER:
@@ -236,8 +243,8 @@ def main():
         {"n": 16000, "directed": False, "acyclic": False, "weighted": False},
         {"n": 169343, "directed": False, "acyclic": False, "weighted": False} # The whole generic graph
     ]
-
-    # Load Data
+    # Create a list of datasets to test on
+    test_datasets = [{"n": 16, "directed": False, "acyclic": False, "weighted": False}, {"n": 160, "directed": False, "acyclic": False, "weighted": False}, {"n": 1600, "directed": False, "acyclic": False, "weighted": False}, {"n": 16000, "directed": False, "acyclic": False, "weighted": False}, {"n": 169343, "directed": False, "acyclic": False, "weighted": False}]
     logger.info("Loading test datasets (OGBN-Arxiv subgraphs)...")
     test_datasets_dict = get_dataset("test", cfg, seed=args.seed)
     
