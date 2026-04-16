@@ -36,7 +36,7 @@ def get_arxiv_graph(root="data/"):
     return _ARXIV_GRAPH
 
 
-def arxiv_graph_generator(n, seed=None):
+def arxiv_graph_generator(n, seed=None, return_type="numpy"):
     """
     Generates a connected subgraph of exactly `n` nodes from the arxiv dataset.
     Uses randomized BFS expansion starting from a random seed node.
@@ -73,6 +73,9 @@ def arxiv_graph_generator(n, seed=None):
                 
     # Relabel nodes to 0 ... n-1
     subgraph = nx.convert_node_labels_to_integers(subgraph)
+    
+    if return_type == "networkx":
+        return subgraph
     
     # Return as dense boolean numpy array (float expected by sampler)
     return nx.to_numpy_array(subgraph).astype(float)

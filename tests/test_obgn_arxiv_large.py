@@ -111,6 +111,68 @@ def efficient_to_sparse_data(inputs, hints, outputs, use_hints=True):
 
 import salsaclrs.data
 salsaclrs.data.to_sparse_data = efficient_to_sparse_data
+
+import salsaclrs.sampler
+from salsaclrs.sampler import BfsSampler
+original_bfs_sampler_next = BfsSampler.next
+
+def fast_bfs_sampler_next(self):
+    import networkx as nx
+    import scipy.sparse as sp
+    import clrs
+    import numpy as np
+    from tests.utils.arxiv_loader import arxiv_graph_generator
+    
+    if self._graph_generator == "arxiv":
+        generator_kwargs = self._get_graph_generator_kwargs()
+        n = self._select_parameter(generator_kwargs.get('n', 0))
+        G = arxiv_graph_generator(n, seed=None, return_type="networkx")
+        
+        source_node = self._rng.choice(G.number_of_nodes())
+        
+        A_sparse = nx.to_scipy_sparse_array(G, dtype=float)
+        
+        # O(V + E) custom sparse BFS that precisely mimics dm-clrs matrix tie-breaking rules
+        pi = np.arange(G.number_of_nodes(), dtype=np.int32)
+        reach = np.zeros(G.number_of_nodes(), dtype=np.int8)
+        reach[source_node] = 1
+        
+        A_csr = sp.csr_matrix(A_sparse)
+        frontier = [source_node]
+        
+        while frontier:
+            # Sort the frontier to mathematically guarantee lowest-index node tie-breakers win
+            frontier.sort()
+            new_frontier = set()
+            for i in frontier:
+                start_ptr = A_csr.indptr[i]
+                end_ptr = A_csr.indptr[i+1]
+                neighbors = A_csr.indices[start_ptr:end_ptr]
+                
+                for j in neighbors:
+                    if pi[j] == j and j != source_node:
+                        pi[j] = i
+                    if reach[j] == 0:
+                        reach[j] = 1
+                        new_frontier.add(j)
+            frontier = list(new_frontier)
+        
+        inputs = [
+            clrs.DataPoint(name="pos", location=clrs.Location.NODE, type_=clrs.Type.SCALAR, data=np.expand_dims(np.arange(G.number_of_nodes()) / G.number_of_nodes(), 0)),
+            clrs.DataPoint(name="s", location=clrs.Location.NODE, type_=clrs.Type.MASK, data=np.expand_dims(np.arange(G.number_of_nodes()) == source_node, 0).astype(float)),
+            clrs.DataPoint(name="adj", location=clrs.Location.EDGE, type_=clrs.Type.MASK, data=[A_sparse])
+        ]
+        
+        outputs = [
+            clrs.DataPoint(name="pi", location=clrs.Location.NODE, type_=clrs.Type.POINTER, data=np.expand_dims(pi, 0))
+        ]
+        
+        # Empty hint list to avoid memory/time overhead of NxN algorithmic frames
+        return inputs, outputs, []
+    else:
+        return original_bfs_sampler_next(self)
+
+BfsSampler.next = fast_bfs_sampler_next
 # ==============================================================================
 
 
