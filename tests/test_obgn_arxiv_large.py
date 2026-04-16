@@ -15,6 +15,10 @@ import lightning.pytorch as pl
 # Add project root to sys.path so absolute imports work
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
+# Module-level flag: when True, use actual BFS depth instead of worst-case N.
+# Trades methodological correctness for speed on very large graphs.
+USE_FAST_ITERATIONS = False
+
 # ==============================================================================
 # MONKEYPATCH: salsaclrs.data.to_sparse_data memory leak fix
 # Bypasses the O(N^2) memory allocation when converting Node Pointers to
@@ -22,7 +26,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 # ==============================================================================
 def efficient_to_sparse_data(inputs, hints, outputs, use_hints=True):
     import clrs
-    from scipy.sparse import coo_matrix
+    from scipy.sparse import coo_matrix, issparse
+    from scipy.sparse import eye as sp_eye
     from torch_geometric.utils.convert import from_scipy_sparse_matrix
     from salsaclrs.data import infer_type, verify_sparseness, pointer_to_one_hot, to_torch, CLRSData
     
@@ -30,7 +35,27 @@ def efficient_to_sparse_data(inputs, hints, outputs, use_hints=True):
     input_attributes = []
     hint_attributes = []
     output_attributes = []
-    data_dict['length'] = hints[0].data.shape[0] if use_hints and len(hints) > 0 else outputs[0].data.shape[0]
+    if use_hints and len(hints) > 0:
+        data_dict['length'] = hints[0].data.shape[0]
+    elif USE_FAST_ITERATIONS:
+        # Fast mode: compute actual BFS depth from the pi (predecessor) array.
+        # Faster but not methodologically correct (requires knowing the answer).
+        pi_arr = outputs[0].data[0].astype(int)
+        n = len(pi_arr)
+        depths = np.zeros(n, dtype=int)
+        for node in range(n):
+            d, cur = 0, node
+            while pi_arr[cur] != cur:
+                d += 1
+                cur = pi_arr[cur]
+                if d > n:
+                    break
+            depths[node] = d
+        data_dict['length'] = int(depths.max()) + 1
+    else:
+        # Default: worst-case iterations (N), matching DeepMind NAR methodology.
+        n = outputs[0].data[0].shape[0]
+        data_dict['length'] = n
     # first get the edge index
     for dp in inputs:
         if dp.name == "adj":
@@ -42,10 +67,21 @@ def efficient_to_sparse_data(inputs, hints, outputs, use_hints=True):
         if dp.name == "adj":
             continue
         elif dp.name == "A":
-            unique_values = np.unique(dp.data[0])
-            is_weighted = unique_values.size != 2 or not np.all(unique_values == np.array([0,1]))
+            A_data = dp.data[0]
+            if issparse(A_data):
+                unique_values = np.unique(A_data.data)  # only nonzero values
+                # For sparse, 0 is implicit, so check if all nonzeros are 1
+                is_weighted = not (unique_values.size == 1 and unique_values[0] == 1.0)
+            else:
+                unique_values = np.unique(A_data)
+                is_weighted = unique_values.size != 2 or not np.all(unique_values == np.array([0,1]))
             if is_weighted:
-                data_dict["weights"] = infer_type("A", (dp.data[0] + np.eye(dp.data[0].shape[0]))[data_dict["edge_index"][0], data_dict["edge_index"][1]])
+                if issparse(A_data):
+                    A_with_self = A_data + sp_eye(A_data.shape[0], dtype=float)
+                    edge_weights = np.asarray(A_with_self[data_dict["edge_index"][0], data_dict["edge_index"][1]]).flatten()
+                else:
+                    edge_weights = (A_data + np.eye(A_data.shape[0]))[data_dict["edge_index"][0], data_dict["edge_index"][1]]
+                data_dict["weights"] = infer_type("A", edge_weights)
         elif dp.location == clrs.Location.EDGE:
             verify_sparseness(dp.data[0], data_dict["edge_index"], dp.name)
             sliced_edge_data = dp.data[0][data_dict["edge_index"][0], data_dict["edge_index"][1]]
@@ -137,14 +173,17 @@ def fast_bfs_sampler_next(self):
         
         source_node = self._rng.choice(G.number_of_nodes())
         
-        A_sparse = nx.to_scipy_sparse_array(G, dtype=float) + sp.eye(G.number_of_nodes(), dtype=float)
+        # Raw adjacency (no self-loops) - used for the 'A' input
+        A_raw = nx.to_scipy_sparse_array(G, dtype=float)
+        # adj = probing.graph(A) = ((A + eye) != 0) * 1.0 — includes self-loops
+        A_adj = A_raw + sp.eye(G.number_of_nodes(), dtype=float)
         
         # O(V + E) custom sparse BFS that precisely mimics dm-clrs matrix tie-breaking rules
         pi = np.arange(G.number_of_nodes(), dtype=np.int32)
         reach = np.zeros(G.number_of_nodes(), dtype=np.int8)
         reach[source_node] = 1
         
-        A_csr = sp.csr_matrix(A_sparse)
+        A_csr = sp.csr_matrix(A_raw)
         frontier = [source_node]
         
         while frontier:
@@ -166,8 +205,9 @@ def fast_bfs_sampler_next(self):
         
         inputs = [
             clrs.DataPoint(name="pos", location=clrs.Location.NODE, type_=clrs.Type.SCALAR, data=np.expand_dims(np.arange(G.number_of_nodes()) / G.number_of_nodes(), 0)),
-            clrs.DataPoint(name="s", location=clrs.Location.NODE, type_=clrs.Type.MASK, data=np.expand_dims(np.arange(G.number_of_nodes()) == source_node, 0).astype(float)),
-            clrs.DataPoint(name="adj", location=clrs.Location.EDGE, type_=clrs.Type.MASK, data=[A_sparse])
+            clrs.DataPoint(name="s", location=clrs.Location.NODE, type_=clrs.Type.MASK_ONE, data=np.expand_dims(np.arange(G.number_of_nodes()) == source_node, 0).astype(float)),
+            clrs.DataPoint(name="A", location=clrs.Location.EDGE, type_=clrs.Type.SCALAR, data=[A_raw]),
+            clrs.DataPoint(name="adj", location=clrs.Location.EDGE, type_=clrs.Type.MASK, data=[A_adj])
         ]
         
         outputs = [
@@ -212,7 +252,13 @@ def main():
     parser.add_argument("--seed", type=int, default=42, help="Random seed")
     parser.add_argument("--num-workers", type=int, default=4, help="Number of dataloader workers")
     parser.add_argument("--num-samples", type=int, default=1, help="Samples to generate per magnitude")
+    parser.add_argument("--fast-iterations", action="store_true",
+                        help="Use actual BFS depth instead of worst-case N iterations. "
+                             "Faster but less methodologically correct.")
     args = parser.parse_args()
+
+    global USE_FAST_ITERATIONS
+    USE_FAST_ITERATIONS = args.fast_iterations
 
     pl.seed_everything(args.seed)
     
@@ -241,7 +287,7 @@ def main():
         {"n": 160, "directed": False, "acyclic": False, "weighted": False},
         {"n": 1600, "directed": False, "acyclic": False, "weighted": False},
         {"n": 16000, "directed": False, "acyclic": False, "weighted": False},
-        {"n": 169343, "directed": False, "acyclic": False, "weighted": False} # The whole generic graph
+        {"n": 169343, "directed": False, "acyclic": False, "weighted": False} # The whole graph
     ]
     # Create a list of datasets to test on
     test_datasets = [{"n": 16, "directed": False, "acyclic": False, "weighted": False}, {"n": 160, "directed": False, "acyclic": False, "weighted": False}, {"n": 1600, "directed": False, "acyclic": False, "weighted": False}, {"n": 16000, "directed": False, "acyclic": False, "weighted": False}, {"n": 169343, "directed": False, "acyclic": False, "weighted": False}]
