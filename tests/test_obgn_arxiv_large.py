@@ -192,6 +192,7 @@ def main():
     parser.add_argument("--ckpt", type=str, required=True, help="Path to checkpoint")
     parser.add_argument("--seed", type=int, default=42, help="Random seed")
     parser.add_argument("--num-workers", type=int, default=4, help="Number of dataloader workers")
+    parser.add_argument("--num-samples", type=int, default=1, help="Samples to generate per magnitude")
     args = parser.parse_args()
 
     pl.seed_everything(args.seed)
@@ -213,6 +214,7 @@ def main():
     cfg = model.cfg
 
     # Override TEST datasets to run Arxiv with large magnitude subgraphs
+    cfg.DATA.TEST.NUM_SAMPLES = args.num_samples
     cfg.DATA.TEST.GRAPH_GENERATOR = ["arxiv", "arxiv", "arxiv", "arxiv", "arxiv"]
     cfg.DATA.TEST.NICKNAME = ["arxiv_16", "arxiv_160", "arxiv_1600", "arxiv_16000", "arxiv_169343"]
     cfg.DATA.TEST.GENERATOR_PARAMS = [
