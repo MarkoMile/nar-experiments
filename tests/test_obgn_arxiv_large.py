@@ -130,7 +130,7 @@ def fast_bfs_sampler_next(self):
         
         source_node = self._rng.choice(G.number_of_nodes())
         
-        A_sparse = nx.to_scipy_sparse_array(G, dtype=float)
+        A_sparse = nx.to_scipy_sparse_array(G, dtype=float) + sp.eye(G.number_of_nodes(), dtype=float)
         
         # O(V + E) custom sparse BFS that precisely mimics dm-clrs matrix tie-breaking rules
         pi = np.arange(G.number_of_nodes(), dtype=np.int32)
