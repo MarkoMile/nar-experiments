@@ -255,6 +255,8 @@ def main():
     parser.add_argument("--fast-iterations", action="store_true",
                         help="Use actual BFS depth instead of worst-case N iterations. "
                              "Faster but less methodologically correct.")
+    parser.add_argument("--small", action="store_true", 
+                        help="Limit evaluation to graphs with <= 16000 nodes (fast on CPU).")
     args = parser.parse_args()
 
     global USE_FAST_ITERATIONS
@@ -290,7 +292,21 @@ def main():
         {"n": 169343, "directed": False, "acyclic": False, "weighted": False} # The whole graph
     ]
     # Create a list of datasets to test on
-    test_datasets = [{"n": 16, "directed": False, "acyclic": False, "weighted": False}, {"n": 160, "directed": False, "acyclic": False, "weighted": False}, {"n": 1600, "directed": False, "acyclic": False, "weighted": False}, {"n": 16000, "directed": False, "acyclic": False, "weighted": False}, {"n": 169343, "directed": False, "acyclic": False, "weighted": False}]
+    test_datasets = [
+        {"n": 16, "directed": False, "acyclic": False, "weighted": False}, 
+        {"n": 160, "directed": False, "acyclic": False, "weighted": False}, 
+        {"n": 1600, "directed": False, "acyclic": False, "weighted": False}, 
+        {"n": 16000, "directed": False, "acyclic": False, "weighted": False}, 
+        {"n": 169343, "directed": False, "acyclic": False, "weighted": False}
+    ]
+
+    if args.small:
+        logger.info("Limiting evaluation to small graphs (<= 16000 nodes) as requested by --small")
+        cfg.DATA.TEST.GRAPH_GENERATOR = cfg.DATA.TEST.GRAPH_GENERATOR[:4]
+        cfg.DATA.TEST.NICKNAME = cfg.DATA.TEST.NICKNAME[:4]
+        cfg.DATA.TEST.GENERATOR_PARAMS = cfg.DATA.TEST.GENERATOR_PARAMS[:4]
+        test_datasets = test_datasets[:4]
+
     logger.info("Loading test datasets (OGBN-Arxiv subgraphs)...")
     test_datasets_dict = get_dataset("test", cfg, seed=args.seed)
     
