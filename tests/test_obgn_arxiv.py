@@ -43,6 +43,7 @@ def main():
     parser.add_argument("--ckpt", type=str, required=True, help="Path to checkpoint")
     parser.add_argument("--seed", type=int, default=42, help="Random seed")
     parser.add_argument("--num-workers", type=int, default=4, help="Number of dataloader workers")
+    parser.add_argument("--num-samples", type=int, default=1, help="Samples to generate per magnitude")
     args = parser.parse_args()
 
     pl.seed_everything(args.seed)
@@ -64,13 +65,15 @@ def main():
     cfg = model.cfg
 
     # Override TEST datasets to only run Arxiv
-    cfg.DATA.TEST.GRAPH_GENERATOR = ["arxiv", "arxiv", "arxiv", "arxiv"]
-    cfg.DATA.TEST.NICKNAME = ["arxiv_16", "arxiv_80", "arxiv_800", "arxiv_1600"]
+    cfg.DATA.TEST.NUM_SAMPLES = args.num_samples
+    cfg.DATA.TEST.GRAPH_GENERATOR = ["arxiv", "arxiv", "arxiv", "arxiv", "arxiv"]
+    cfg.DATA.TEST.NICKNAME = ["arxiv_16", "arxiv_80", "arxiv_800", "arxiv_1600", "arxiv_16000"]
     cfg.DATA.TEST.GENERATOR_PARAMS = [
         {"n": 16, "directed": False, "acyclic": False, "weighted": False},
         {"n": 80, "directed": False, "acyclic": False, "weighted": False},
         {"n": 800, "directed": False, "acyclic": False, "weighted": False},
-        {"n": 1600, "directed": False, "acyclic": False, "weighted": False}
+        {"n": 1600, "directed": False, "acyclic": False, "weighted": False},
+        {"n": 16000, "directed": False, "acyclic": False, "weighted": False}
     ]
 
     # Load Data
