@@ -38,6 +38,7 @@ wandb/
 # === Jupyter ===
 .ipynb_checkpoints/
 notebooks/*.html
+notebooks/deprecated/
 
 # === Testing ===
 .pytest_cache/
