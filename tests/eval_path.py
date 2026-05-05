@@ -23,6 +23,7 @@ Usage:
 import os
 import sys
 import argparse
+import contextlib
 import torch
 import numpy as np
 from collections import defaultdict
@@ -257,6 +258,18 @@ def main():
     data_root = os.path.join(cfg.DATA.ROOT, "salsaclrs", f"seed_{args.seed}")
     os.makedirs(data_root, exist_ok=True)
 
+    # --- Determine autocast context to match pl.Trainer(precision=...) ---
+    precision = cfg.TRAIN.PRECISION
+    if precision in ("16-mixed", "16"):
+        autocast_ctx = torch.autocast(device.type, dtype=torch.float16)
+        print(f"Using mixed precision: float16 (matching cfg.TRAIN.PRECISION={precision})")
+    elif precision in ("bf16-mixed", "bf16"):
+        autocast_ctx = torch.autocast(device.type, dtype=torch.bfloat16)
+        print(f"Using mixed precision: bfloat16 (matching cfg.TRAIN.PRECISION={precision})")
+    else:
+        autocast_ctx = contextlib.nullcontext()
+        print(f"Using full precision fp32 (cfg.TRAIN.PRECISION={precision})")
+
     # --- Evaluate each path depth config ---
     for depth in sorted(args.max_depths):
         n_nodes = depth + 1  # path of n nodes → max depth n-1
@@ -283,7 +296,7 @@ def main():
         )
 
         all_results = []
-        with torch.no_grad():
+        with torch.no_grad(), autocast_ctx:
             for loader in datamodule.test_dataloader():
                 for batch in loader:
                     batch = batch.to(device)
