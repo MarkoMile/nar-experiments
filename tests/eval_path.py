@@ -211,6 +211,11 @@ def main():
     parser.add_argument("--batch-size", type=int, default=1, help="Inference batch size")
     parser.add_argument("--device", type=str, default="auto", help="cpu / cuda / auto")
     parser.add_argument(
+        "--precision", type=str, default=None,
+        choices=["32", "16-mixed", "bf16-mixed"],
+        help="Override eval precision. Default: use cfg.TRAIN.PRECISION from checkpoint."
+    )
+    parser.add_argument(
         "--max-depths", type=int, nargs="+",
         default=[16, 32, 64, 128, 256, 512],
         help="Max BFS depths to test. Each depth d creates a path graph with n=d+1 nodes. "
@@ -258,17 +263,18 @@ def main():
     data_root = os.path.join(cfg.DATA.ROOT, "salsaclrs", f"seed_{args.seed}")
     os.makedirs(data_root, exist_ok=True)
 
-    # --- Determine autocast context to match pl.Trainer(precision=...) ---
-    precision = cfg.TRAIN.PRECISION
+    # --- Determine autocast context ---
+    precision = args.precision if args.precision else cfg.TRAIN.PRECISION
+    source = "--precision flag" if args.precision else f"cfg.TRAIN.PRECISION"
     if precision in ("16-mixed", "16"):
         autocast_ctx = torch.autocast(device.type, dtype=torch.float16)
-        print(f"Using mixed precision: float16 (matching cfg.TRAIN.PRECISION={precision})")
+        print(f"Using mixed precision: float16 (from {source}, value={precision})")
     elif precision in ("bf16-mixed", "bf16"):
         autocast_ctx = torch.autocast(device.type, dtype=torch.bfloat16)
-        print(f"Using mixed precision: bfloat16 (matching cfg.TRAIN.PRECISION={precision})")
+        print(f"Using mixed precision: bfloat16 (from {source}, value={precision})")
     else:
         autocast_ctx = contextlib.nullcontext()
-        print(f"Using full precision fp32 (cfg.TRAIN.PRECISION={precision})")
+        print(f"Using full precision: fp32 (from {source}, value={precision})")
 
     # --- Evaluate each path depth config ---
     for depth in sorted(args.max_depths):
