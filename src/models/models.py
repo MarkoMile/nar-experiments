@@ -339,7 +339,7 @@ class NodeMaskOneDecoder(NodeBaseDecoder):
         out = super().forward(x) # N x 1
 
         out = torch_scatter.scatter_log_softmax(out, batch_assignment, dim=0)
-        return torch.nan_to_num(out)
+        return torch.nan_to_num(out).squeeze(-1)
 
 
 class NodeCategoricalDecoder(NodeBaseDecoder):
