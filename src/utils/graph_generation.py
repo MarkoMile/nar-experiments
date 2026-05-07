@@ -9,7 +9,7 @@ from src.utils.config import get_cfg_defaults
 
 import networkx as nx
 import numpy as np
-from salsaclrs.sampler import Sampler, BfsSampler
+from salsaclrs.sampler import Sampler, BfsSampler, BellmanFordSampler, SAMPLERS
 import salsaclrs.data as custom_data
 
 # Monkey-patch verify_sparseness to allow backward pointers in directed graphs.
@@ -109,6 +109,9 @@ def patched_bfs_sample_data(self):
 
 BfsSampler._sample_data = patched_bfs_sample_data
 
+# Register bellman_ford in SAMPLERS (commented out in the library but fully functional)
+if 'bellman_ford' not in SAMPLERS:
+    SAMPLERS['bellman_ford'] = BellmanFordSampler
 
 def get_dataset(split: str, cfg: CfgNode = None, seed: int = 42):
     """
