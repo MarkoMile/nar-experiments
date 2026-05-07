@@ -6,7 +6,7 @@ This module contains the shared training infrastructure:
 - `EpochProfilingCallback` — logs epoch timing and throughput
 - `setup_and_train()` — end-to-end CLI helper: parse args, load data, build model, train
 
-Individual algorithm entry points (train_bfs.py, train_bellman_ford.py, etc.)
+Individual algorithm entry points (train_bfs.py, train_bellman_ford.py, train_dijkstra.py, etc.)
 are thin wrappers that simply call `setup_and_train()`.
 """
 
