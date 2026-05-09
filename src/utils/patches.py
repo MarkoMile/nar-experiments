@@ -129,3 +129,16 @@ BfsSampler._sample_data = patched_bfs_sample_data
 # ---------------------------------------------------------------------------
 if 'bellman_ford' not in SAMPLERS:
     SAMPLERS['bellman_ford'] = BellmanFordSampler
+
+# ---------------------------------------------------------------------------
+# 6. BellmanFord/Dijkstra sampler: support unweighted graphs via config
+# ---------------------------------------------------------------------------
+def patched_bellman_ford_sample_data(self, low=0.0, high=1.0):
+    generator_kwargs = self._get_graph_generator_kwargs()
+    is_weighted = generator_kwargs.get("weighted", True)
+    generator_kwargs.update({"directed": False, "acyclic": False, "weighted": is_weighted, "low": low, "high": high})  
+    graph = self._create_graph(**generator_kwargs)
+    source_node = self._rng.choice(graph.shape[0])
+    return [graph, source_node]
+
+BellmanFordSampler._sample_data = patched_bellman_ford_sample_data
