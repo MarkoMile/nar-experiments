@@ -65,7 +65,7 @@ DATA:
       - { "n": 800, "directed": False, "acyclic": False, "weighted": True }
 
 TRAIN:
-  PRECISION: "16-mixed"
+  PRECISION: "32-true"
   GRADIENT_CLIP_VAL: 0.1
   LOSS:
     OUTPUT_LOSS_WEIGHT: 1.0
