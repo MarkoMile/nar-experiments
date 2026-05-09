@@ -8,6 +8,7 @@ Usage:
 import os
 import sys
 import argparse
+import contextlib
 import torch
 import numpy as np
 import lightning.pytorch as pl
@@ -257,6 +258,11 @@ def main():
                              "Faster but less methodologically correct.")
     parser.add_argument("--small", action="store_true", 
                         help="Limit evaluation to graphs with <= 16000 nodes (fast on CPU).")
+    parser.add_argument(
+        "--precision", type=str, default=None,
+        choices=["32", "16-mixed", "bf16-mixed"],
+        help="Override eval precision. Default: use cfg.TRAIN.PRECISION from checkpoint."
+    )
     args = parser.parse_args()
 
     global USE_FAST_ITERATIONS
@@ -327,11 +333,14 @@ def main():
             return _orig_dataloader(dataset, **kwargs)
         datamodule.dataloader = _patched_dataloader
 
+    precision = args.precision if args.precision else cfg.TRAIN.PRECISION
+    logger.info(f"Using precision: {precision} (from {'--precision flag' if args.precision else 'cfg.TRAIN.PRECISION'})")
+
     # Init Trainer
     trainer = pl.Trainer(
         accelerator="auto",
         logger=False, # Disable wandb logging for pure eval
-        precision=cfg.TRAIN.PRECISION,
+        precision=precision,
     )
 
     # Run Eval
@@ -359,12 +368,20 @@ def main():
             break
 
     if output_key is not None:
+        # --- Determine autocast context ---
+        if precision in ("16-mixed", "16"):
+            autocast_ctx = torch.autocast(device.type, dtype=torch.float16)
+        elif precision in ("bf16-mixed", "bf16"):
+            autocast_ctx = torch.autocast(device.type, dtype=torch.bfloat16)
+        else:
+            autocast_ctx = contextlib.nullcontext()
+
         model.eval()
         model.to(device)
         for idx, loader in enumerate(datamodule.test_dataloader()):
             name = datamodule.get_test_loader_nickname(idx)
             all_results = []
-            with torch.no_grad():
+            with torch.no_grad(), autocast_ctx:
                 for batch in loader:
                     batch = batch.to(device)
                     output, hints, hidden = model(batch)
