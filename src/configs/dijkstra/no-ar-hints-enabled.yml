@@ -59,7 +59,7 @@ DATA:
       - { "n": 800, "directed": False, "acyclic": False, "weighted": True }
 
 TRAIN:
-  PRECISION: "16-mixed"
+  PRECISION: "32-true"
   GRADIENT_CLIP_VAL: 0.1
   LOSS:
     OUTPUT_LOSS_WEIGHT: 1.0
@@ -81,7 +81,7 @@ TRAIN:
     PARAMS: [{ "mode": "min", "factor": 0.5, "patience": 50 }]
 
 TEST:
-  BATCH_SIZE: 15
+  BATCH_SIZE: 2
 
 LOGGING:
   WANDB:
