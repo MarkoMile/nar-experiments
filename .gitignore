@@ -64,3 +64,4 @@ src/experiments/deprecated/
 notebooks/data/
 .temp/
 src/experiments/analyze_wandb_ablation.py
+src/configs/dijkstra/deprecated/
