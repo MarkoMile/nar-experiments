@@ -374,10 +374,7 @@ class BaseEdgeDecoder(nn.Module):
         if self.use_fp64:
             zs = zs.double()
             zt = zt.double()
-        
-        # Scale before multiplying to prevent fp16 overflow
-        scale = self.hidden_dim ** 0.25
-        out = ((zs[edge_index[0]] / scale) * (zt[edge_index[1]] / scale)).sum(dim=-1)
+        out = (zs[edge_index[0]] * zt[edge_index[1]]).sum(dim=-1) / (self.hidden_dim ** 0.5)
         # out = torch.clamp(out, min=-50, max=50)
         return out
     
