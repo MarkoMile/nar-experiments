@@ -4,16 +4,24 @@ import torch_scatter
 from loguru import logger
 from src.utils.utils import NaNException
 
-def calculate_loss(mask, truth, pred, edge_index, type_, batch_assignment, use_fp64=True):
+def calculate_loss(mask, truth, pred, edge_index, type_, batch_assignment, use_fp64=True, scalar_loss_type="mse"):
     if type_ == "scalar":
         safe_pred = torch.where(mask > 0, pred, truth)
-        # Use simple MSE with double precision to avoid square overflow if outputs are humongous
-        if use_fp64:
-            mse = (safe_pred.double() - truth.double()) ** 2
-            return torch.mean(mse.float() * mask)
+        if scalar_loss_type == "huber":
+            if use_fp64:
+                loss = F.huber_loss(safe_pred.double(), truth.double(), reduction='none', delta=1.0)
+                return torch.mean(loss.float() * mask)
+            else:
+                loss = F.huber_loss(safe_pred, truth, reduction='none', delta=1.0)
+                return torch.mean(loss * mask)
         else:
-            mse = (safe_pred - truth) ** 2
-            return torch.mean(mse * mask)
+            # Use simple MSE with double precision to avoid square overflow if outputs are humongous
+            if use_fp64:
+                mse = (safe_pred.double() - truth.double()) ** 2
+                return torch.mean(mse.float() * mask)
+            else:
+                mse = (safe_pred - truth) ** 2
+                return torch.mean(mse * mask)
     elif type_ == "mask":
         # pred is not sigmoided due to autocast issues
         safe_pred = torch.where(mask > 0, pred, torch.zeros_like(pred))
@@ -51,10 +59,11 @@ def calculate_loss(mask, truth, pred, edge_index, type_, batch_assignment, use_f
         raise NotImplementedError
     
 class CLRSLoss(torch.nn.Module):
-    def __init__(self, specs, hidden_loss_type, use_fp64=True):
+    def __init__(self, specs, hidden_loss_type, use_fp64=True, scalar_loss_type="mse"):
         super().__init__()
         self.specs = specs
         self.use_fp64 = use_fp64
+        self.scalar_loss_type = scalar_loss_type
 
         if hidden_loss_type == "l2":
             if self.use_fp64:
@@ -74,7 +83,7 @@ class CLRSLoss(torch.nn.Module):
                 raise NaNException(f"NaN in {key} output")
             stage, loc, type_, cat_dim = self.specs[key]
             mask = torch.ones_like(batch[key])
-            output_loss += calculate_loss(mask, batch[key], outputs[key], batch.edge_index,  type_, batch.batch, use_fp64=self.use_fp64)
+            output_loss += calculate_loss(mask, batch[key], outputs[key], batch.edge_index,  type_, batch.batch, use_fp64=self.use_fp64, scalar_loss_type=self.scalar_loss_type)
 
         hint_loss = torch.zeros(1, device=device)
         final_node_idx = (batch.length[batch.batch]-1)
@@ -92,6 +101,6 @@ class CLRSLoss(torch.nn.Module):
             else:
                 # graph attribute
                 mask = torch.arange(batch.length.max(), device=device).unsqueeze(0) <= batch.length.unsqueeze(1)
-            hint_loss += calculate_loss(mask, batch[key], hints[key], batch.edge_index, type_, batch.batch, use_fp64=self.use_fp64)
+            hint_loss += calculate_loss(mask, batch[key], hints[key], batch.edge_index, type_, batch.batch, use_fp64=self.use_fp64, scalar_loss_type=self.scalar_loss_type)
         
         return output_loss, hint_loss, self.hidden_loss(hidden)
