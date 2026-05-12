@@ -30,7 +30,7 @@ DATA:
     GENERATOR_PARAMS:
       - { "n": 16, "p": [0.5], "directed": False, "acyclic": False, "weighted": True }
   VAL:
-    NUM_SAMPLES: 15
+    NUM_SAMPLES: 2
     GRAPH_GENERATOR: ["er", "er", "er", "ws", "ws", "ws", "delaunay", "delaunay", "delaunay"]
     NICKNAME: ["er_16", "er_80", "er_800", "ws_16", "ws_80", "ws_800", "delaunay_16", "delaunay_80", "delaunay_800"]
     GENERATOR_PARAMS:
@@ -65,7 +65,7 @@ TRAIN:
     OUTPUT_LOSS_WEIGHT: 1.0
     HINT_LOSS_WEIGHT: 0.0
     HIDDEN_LOSS_WEIGHT: 0.0
-  MAX_EPOCHS: 5000
+  MAX_EPOCHS: 1000
   CHECKPOINT_MONITOR: "val/loss/er_16"
   CHECKPOINT_MONITOR_MODE: "min"
   BATCH_SIZE: 2048
@@ -73,15 +73,15 @@ TRAIN:
   NUM_WORKERS: 16
   EARLY_STOPPING_PATIENCE: 5000
   OPTIMIZER:
-    LR: 0.0004239
-    WEIGHT_DECAY: 0.01
+    LR: 0.00678
+    WEIGHT_DECAY: 0.09
   SCHEDULER:
     ENABLE: False
     NAME: "ReduceLROnPlateau"
     PARAMS: [{ "mode": "min", "factor": 0.1, "patience": 50 }]
 
 TEST:
-  BATCH_SIZE: 8
+  BATCH_SIZE: 2
 
 LOGGING:
   WANDB:
