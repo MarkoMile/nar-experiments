@@ -30,7 +30,7 @@ DATA:
     GENERATOR_PARAMS:
       - { "n": 16, "p": [0.5], "directed": False, "acyclic": False, "weighted": True }
   VAL:
-    NUM_SAMPLES: 15
+    NUM_SAMPLES: 2
     GRAPH_GENERATOR: ["er", "er", "er", "ws", "ws", "ws", "delaunay", "delaunay", "delaunay"]
     NICKNAME: ["er_16", "er_80", "er_800", "ws_16", "ws_80", "ws_800", "delaunay_16", "delaunay_80", "delaunay_800"]
     GENERATOR_PARAMS:
@@ -44,7 +44,7 @@ DATA:
       - { "n": 80, "directed": False, "acyclic": False, "weighted": True }
       - { "n": 800, "directed": False, "acyclic": False, "weighted": True }
   TEST:
-    NUM_SAMPLES: 15
+    NUM_SAMPLES: 2
     GRAPH_GENERATOR: ["er", "er", "er", "ws", "ws", "ws", "delaunay", "delaunay", "delaunay"]
     NICKNAME: ["er_16", "er_80", "er_800", "ws_16", "ws_80", "ws_800", "delaunay_16", "delaunay_80", "delaunay_800"]
     GENERATOR_PARAMS:
@@ -81,7 +81,7 @@ TRAIN:
     PARAMS: [{ "mode": "min", "factor": 0.1, "patience": 50 }]
 
 TEST:
-  BATCH_SIZE: 8
+  BATCH_SIZE: 2
 
 LOGGING:
   WANDB:
