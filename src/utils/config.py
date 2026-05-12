@@ -96,6 +96,7 @@ _C.TRAIN.LOSS.OUTPUT_LOSS_WEIGHT = 1.0
 _C.TRAIN.LOSS.HINT_LOSS_WEIGHT = 1.0
 _C.TRAIN.LOSS.HIDDEN_LOSS_WEIGHT = 0.0
 _C.TRAIN.LOSS.HIDDEN_LOSS_TYPE = "l2"
+_C.TRAIN.LOSS.SCALAR_LOSS_TYPE = "mse"  # "mse" or "huber" (Smooth L1)
 
 
 # -----------------------------------------------------------------------------
