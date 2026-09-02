@@ -46,8 +46,53 @@ torch.load = unsafe_torch_load
 # ---------------------------------------------------------------------------
 original_create_graph = Sampler._create_graph
 
+
+def _rewire_edges(rng, mat, p, connected=True, max_tries=200):
+    """
+    Watts-Strogatz-style per-edge rewiring of an adjacency matrix.
+
+    For each edge, with probability `p`, one of its two endpoints is reassigned
+    to a uniformly random node, avoiding self-loops and duplicate edges. The
+    kept endpoint is chosen at random rather than always keeping the first one,
+    because networkx yields edges as (u, v) with u < v — always keeping `u`
+    would starve high-index nodes of edges.
+
+    When `connected` is set, the whole rewiring is rejection-sampled until the
+    result is connected, matching the `er` and `ws` generators (both of which
+    also retry until connected). This keeps connectivity constant across a
+    rewiring sweep, so accuracy changes reflect structure and not unreachable
+    nodes.
+    """
+    if p <= 0:
+        return mat  # exact no-op, so p=0 reproduces the base generator
+
+    base = nx.from_numpy_array(mat)
+    n = base.number_of_nodes()
+
+    for _ in range(max_tries):
+        G = base.copy()
+        for u, v in base.edges():
+            if rng.uniform() >= p:
+                continue
+            keep = u if rng.uniform() < 0.5 else v
+            for _ in range(n):
+                w = rng.randint(n)
+                if w != keep and not G.has_edge(keep, w):
+                    G.remove_edge(u, v)
+                    G.add_edge(keep, w)
+                    break
+        if not connected or nx.is_connected(G):
+            return nx.to_numpy_array(G)
+
+    raise RuntimeError(
+        f"Could not generate a connected rewired graph (n={n}, p={p}) in "
+        f"{max_tries} tries. Set 'connected': False in GENERATOR_PARAMS to "
+        f"allow disconnected graphs."
+    )
+
+
 def patched_create_graph(self, n, weighted, directed, low=0.0, high=1.0, **kwargs):
-    """Extended _create_graph supporting scale_free, gn, gnr, directed ER."""
+    """Extended _create_graph supporting scale_free, gn, gnr, directed ER, rewired Delaunay."""
     connected = kwargs.get('connected', True)
 
     if self._graph_generator == 'scale_free':
@@ -80,6 +125,13 @@ def patched_create_graph(self, n, weighted, directed, low=0.0, high=1.0, **kwarg
         # GNR graph is always a weakly connected tree inherently
         G = nx.gnr_graph(n_val, p=p).to_undirected()
         mat = nx.to_numpy_array(G)
+    elif self._graph_generator == 'rewired_delaunay':
+        # Delaunay triangulation with a fraction p of edges rewired to random
+        # long-range links, interpolating between the delaunay and ws families.
+        # p=0 goes through the untouched delaunay code path.
+        p_val = self._select_parameter(kwargs.get('p', 0.0), kwargs.get('p_range'))
+        mat = self._random_delaunay_graph(n=n, **kwargs)
+        mat = _rewire_edges(self._rng, mat, p_val, connected=connected)
     elif self._graph_generator is None or self._graph_generator == 'er':
         n_val = self._select_parameter(n)
         p_val = self._select_parameter(kwargs.get('p'), kwargs.get('p_range'))

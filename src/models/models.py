@@ -649,6 +649,12 @@ class EncodeProcessDecode(torch.nn.Module):
                                 soft_pred = torch.exp(raw_pred)
                             elif type_ == 'mask':
                                 soft_pred = torch.sigmoid(raw_pred)
+                                if getattr(self.cfg.MODEL.AUTOREGRESSIVE, "MASK_MODE", "soft") == 'hard':
+                                    # Discretise the re-injected mask hint (e.g. BFS reach_h) so
+                                    # fractional probability mass cannot accumulate across a long
+                                    # rollout. AR predictions are already detached, so this changes
+                                    # only the rollout, never a gradient.
+                                    soft_pred = (soft_pred > 0.5).to(soft_pred.dtype)
                             else: # scalar
                                 soft_pred = raw_pred
                             key_encoding = self.hint_encoder.encoder[key](soft_pred)

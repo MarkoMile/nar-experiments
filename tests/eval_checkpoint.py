@@ -98,6 +98,24 @@ def main():
     parser.add_argument("--ckpt", type=str, required=True, help="Path to checkpoint")
     parser.add_argument("--seed", type=int, default=42, help="Random seed")
     parser.add_argument("--num-workers", type=int, default=4, help="Number of dataloader workers")
+    parser.add_argument("--num-samples", type=int, default=None,
+                        help="Override DATA.TEST.NUM_SAMPLES (graphs per bin). "
+                             "The paper's Table 1 used 15, which is small enough that a single "
+                             "graph moves each cell by 6.7 points.")
+    parser.add_argument("--test-batch-size", type=int, default=None,
+                        help="Override TEST.BATCH_SIZE. Lower this if N=1600 bins OOM.")
+    parser.add_argument(
+        "--precision", type=str, default=None,
+        choices=["32", "16-mixed", "bf16-mixed"],
+        help="Override eval precision. Default: cfg.TRAIN.PRECISION from the checkpoint "
+             "(16-mixed for the paper's runs)."
+    )
+    parser.add_argument("--max-cores", type=int, default=-1,
+                        help="Cores for graph generation. -1 (default) is serial; set to the "
+                             "instance's core count to speed up large high-sample bins.")
+    parser.add_argument("--mask-mode", type=str, default=None, choices=["soft", "hard"],
+                        help="Override MODEL.AUTOREGRESSIVE.MASK_MODE. 'hard' thresholds the "
+                             "re-injected mask hint at 0.5 during rollout (inference only).")
     args = parser.parse_args()
 
     pl.seed_everything(args.seed)
@@ -118,6 +136,16 @@ def main():
     # Get cfg directly from the loaded model
     cfg = model.cfg
 
+    if args.num_samples is not None:
+        cfg.DATA.TEST.NUM_SAMPLES = args.num_samples
+    if args.test_batch_size is not None:
+        cfg.TEST.BATCH_SIZE = args.test_batch_size
+    if args.mask_mode is not None:
+        # Old checkpoints predate this key, so allow it to be added.
+        cfg.MODEL.AUTOREGRESSIVE.set_new_allowed(True)
+        cfg.MODEL.AUTOREGRESSIVE.MASK_MODE = args.mask_mode
+        logger.info(f"AR mask hint mode: {args.mask_mode}")
+
     # Add 1600-node graphs to TEST manually if they are not already there
     if "er_1600" not in cfg.DATA.TEST.NICKNAME:
         cfg.DATA.TEST.GRAPH_GENERATOR.append("er")
@@ -136,7 +164,7 @@ def main():
 
     # Load Data
     logger.info("Loading test datasets...")
-    test_datasets_dict = get_dataset("test", cfg, seed=args.seed)
+    test_datasets_dict = get_dataset("test", cfg, seed=args.seed, max_cores=args.max_cores)
     
     datamodule = SALSACLRSDataModule(
         train_dataset=None,  # Not needed for testing
@@ -156,10 +184,13 @@ def main():
         datamodule.dataloader = _patched_dataloader
 
     # Init Trainer
+    precision = args.precision if args.precision else cfg.TRAIN.PRECISION
+    source = "--precision flag" if args.precision else "cfg.TRAIN.PRECISION"
+    logger.info(f"Eval precision: {precision} (from {source})")
     trainer = pl.Trainer(
         accelerator="auto",
         logger=False, # Disable wandb logging for pure eval
-        precision=cfg.TRAIN.PRECISION,
+        precision=precision,
     )
 
     # Run Eval
@@ -168,7 +199,9 @@ def main():
 
     # Print Table
     print("\n" + "="*80)
-    print("EVALUATION RESULTS")
+    print(f"EVALUATION RESULTS  (ckpt={os.path.basename(args.ckpt)}, "
+          f"precision={precision}, samples/bin={cfg.DATA.TEST.NUM_SAMPLES}, "
+          f"mask_mode={getattr(cfg.MODEL.AUTOREGRESSIVE, 'MASK_MODE', 'soft')})")
     print("="*80)
     table = format_results_table(results)
     print(table)

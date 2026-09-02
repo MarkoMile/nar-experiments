@@ -22,7 +22,7 @@ import src.utils.patches  # noqa: F401  — side-effect import
 from src.utils.patches import patched_create_graph  # noqa: F401
 
 
-def get_dataset(split: str, cfg: CfgNode = None, seed: int = 42):
+def get_dataset(split: str, cfg: CfgNode = None, seed: int = 42, max_cores: int = -1):
     """
     Load a SALSA-CLRS dataset for a specific split using the project config.
 
@@ -33,6 +33,8 @@ def get_dataset(split: str, cfg: CfgNode = None, seed: int = 42):
         split (str): One of 'train', 'val', 'test'.
         cfg (CfgNode, optional): A yacs config node. If None, the default
             config from config.py is used.
+        max_cores (int): Cores for graph generation. -1 (default) is serial;
+            generating thousands of large graphs is much faster in parallel.
 
     Returns:
         SALSACLRSDataset or dict:
@@ -84,7 +86,8 @@ def get_dataset(split: str, cfg: CfgNode = None, seed: int = 42):
                              num_samples=samples,
                              graph_generator=gen,
                              graph_generator_kwargs=param_dict,
-                             verify_duplicates=False
+                             verify_duplicates=False,
+                             max_cores=max_cores
                          )
                          datasets.append(ds)
                          
@@ -112,7 +115,8 @@ def get_dataset(split: str, cfg: CfgNode = None, seed: int = 42):
                              graph_generator_kwargs=param_dict,
                              verify_duplicates=False,
                              nickname=nickname,
-                             ignore_all_hints=(cfg.TRAIN.LOSS.HINT_LOSS_WEIGHT == 0.0) # if hints are ignored in config, ignore them in val/test too
+                             ignore_all_hints=(cfg.TRAIN.LOSS.HINT_LOSS_WEIGHT == 0.0), # if hints are ignored in config, ignore them in val/test too
+                             max_cores=max_cores
                          )
                          datasets[nickname] = ds
                      return datasets
