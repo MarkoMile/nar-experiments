@@ -69,7 +69,9 @@ class Runner:
                                     stderr=subprocess.STDOUT, text=True, bufsize=1)
             for line in proc.stdout:
                 sys.stdout.write(line)
+                sys.stdout.flush()
                 log.write(line)
+                log.flush()   # so a running job's log is readable, not buffered
             rc = proc.wait()
         secs = time.time() - start
 
@@ -119,9 +121,10 @@ def main():
     p.add_argument("--test-batch-size", type=int, default=5, help="eval_checkpoint test batch size")
     p.add_argument("--seed", type=int, default=42)
     p.add_argument("--max-cores", type=int, default=-1,
-                   help="Cores for graph generation (-1 = serial). Generation is serial by "
-                        "default and dominates wall-clock for high sample counts; set this to "
-                        "the instance's core count.")
+                   help="Cores for graph generation. KEEP AT -1 (serial). The eval scripts move "
+                        "the model onto CUDA before generating datasets, so a forked worker pool "
+                        "inherits an initialised CUDA context and deadlocks. Parallel generation "
+                        "would need the datasets built before the model is loaded.")
     p.add_argument("--dry-run", action="store_true")
     p.add_argument("--stop-on-fail", action="store_true")
     args = p.parse_args()

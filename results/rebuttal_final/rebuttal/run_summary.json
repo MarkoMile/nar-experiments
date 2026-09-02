@@ -1,0 +1,44 @@
+[
+  {
+    "name": "depth_model-best_p32",
+    "rc": 0,
+    "secs": 553.0604996681213,
+    "cmd": "/venv/main/bin/python -u tests/bfs_depth_analysis.py --ckpt model-checkpoints/model-best.ckpt --sizes 800 1600 --families ws er delaunay --num-samples 50 --batch-size 1 --precision 32 --seed 42 --max-cores -1 --json-out results/rebuttal/depth_model-best_p32.json"
+  },
+  {
+    "name": "depth_model-best_p16mixed",
+    "rc": 0,
+    "secs": 76.14932060241699,
+    "cmd": "/venv/main/bin/python -u tests/bfs_depth_analysis.py --ckpt model-checkpoints/model-best.ckpt --sizes 800 1600 --families ws er delaunay --num-samples 50 --batch-size 1 --precision 16-mixed --seed 42 --max-cores -1 --json-out results/rebuttal/depth_model-best_p16mixed.json"
+  },
+  {
+    "name": "table1_model-best_p32",
+    "rc": 0,
+    "secs": 2093.384167432785,
+    "cmd": "/venv/main/bin/python -u tests/eval_checkpoint.py --ckpt model-checkpoints/model-best.ckpt --num-samples 200 --test-batch-size 5 --precision 32 --seed 42 --max-cores -1 --num-workers 4"
+  },
+  {
+    "name": "table1_model-best_p16mixed",
+    "rc": 0,
+    "secs": 157.15666151046753,
+    "cmd": "/venv/main/bin/python -u tests/eval_checkpoint.py --ckpt model-checkpoints/model-best.ckpt --num-samples 200 --test-batch-size 5 --precision 16-mixed --seed 42 --max-cores -1 --num-workers 4"
+  },
+  {
+    "name": "wssweep_model-best",
+    "rc": 0,
+    "secs": 493.09502506256104,
+    "cmd": "/venv/main/bin/python -u tests/bfs_depth_analysis.py --ckpt model-checkpoints/model-best.ckpt --sizes 800 --families --ws-p-sweep 0.0 0.01 0.05 0.1 0.2 0.5 1.0 --ws-k 6 --shortcuts --num-samples 30 --batch-size 1 --precision 32 --seed 42 --max-cores -1 --json-out results/rebuttal/wssweep_model-best.json"
+  },
+  {
+    "name": "disc_model-best_soft",
+    "rc": 0,
+    "secs": 84.66972470283508,
+    "cmd": "/venv/main/bin/python -u tests/bfs_depth_analysis.py --ckpt model-checkpoints/model-best.ckpt --sizes 800 1600 --families ws --num-samples 30 --batch-size 1 --precision 32 --mask-mode soft --seed 42 --max-cores -1 --json-out results/rebuttal/disc_model-best_soft.json"
+  },
+  {
+    "name": "disc_model-best_hard",
+    "rc": 0,
+    "secs": 84.26636028289795,
+    "cmd": "/venv/main/bin/python -u tests/bfs_depth_analysis.py --ckpt model-checkpoints/model-best.ckpt --sizes 800 1600 --families ws --num-samples 30 --batch-size 1 --precision 32 --mask-mode hard --seed 42 --max-cores -1 --json-out results/rebuttal/disc_model-best_hard.json"
+  }
+]

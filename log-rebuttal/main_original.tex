@@ -1,0 +1,176 @@
+\documentclass{article}
+
+% anonymous submission to extended abstract track
+\usepackage[review,eabstract]{log_2026}
+
+\usepackage{booktabs}       % professional-quality tables
+\usepackage{amsfonts}       % blackboard math symbols
+\usepackage{nicefrac}       % compact symbols for 1/2, etc.
+\usepackage{graphicx}       % required for figures
+\usepackage{float}          % required for exact [H] float placement
+
+\title{Grokking Breadth-First Search: Generalizing from 16 to 1600 Nodes with Pointer Graph Networks}
+
+\author[M. Milenkovi\'{c}]{%
+  Marko Milenkovi\'{c} \\
+  Faculty of Technical Sciences, University of Novi Sad\\
+  \email{mmarkomile@gmail.com}
+}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+Neural Algorithmic Reasoning (NAR) models are increasingly being pushed to their limits to test out-of-distribution (OOD) generalization, often failing when evaluated on graphs significantly larger than those seen during training. In this extended abstract, we propose a heavily regularized Pointer Graph Network (PGN) training pipeline for the Breadth-First Search (BFS) task within the SALSA-CLRS benchmark. By combining Autoregressive Teacher Forcing (AR+TF), hidden state noise injection, and aggressive weight decay within a low-variance, high-batch-size grokking regime, we achieve extreme OOD generalization. Training exclusively on Erd\H{o}s-R\'{e}nyi (ER) graphs of $N \le 16$ nodes, our model maintains an $80\%$ exact graph match accuracy on structurally distinct Delaunay triangulations of 1600 nodes. Crucially, this marks a categorical improvement over the standard SALSA-CLRS PGN baseline, which collapses to near-zero ($\le 0.2\%$) graph accuracy at these scales. This 100x scale increase in evaluation size demonstrates highly robust algorithmic alignment. Our results provide compelling evidence that standard GNNs already possess significant latent capacity for extreme algorithmic generalization, challenging the assumption that highly specialized architectural biases are necessary for robust extrapolation.
+\end{abstract}
+
+\section{Introduction}
+
+Standard Graph Neural Networks (GNNs) \cite{velickovic2020pointer} are highly capable of algorithmic interpolation but frequently fail when forced to extrapolate execution traces to massive out-of-distribution (OOD) graphs \cite{velickovic2022clrs}. The SALSA-CLRS benchmark \cite{minder2023salsa} formalizes this frontier, pushing evaluation limits up to 100x the training distribution to expose the fragility of learned heuristics. To overcome these severe OOD bottlenecks, recent state-of-the-art research has increasingly focused on developing novel, discrete, or highly specialized neural architectures. For example, recent works introduce custom structural biases or algorithm-specific network layers, such as FloydNet \cite{floydnet} and other recent specialized topologies \cite{rodionov2025discrete}, to force strict algorithmic alignment. 
+
+We present empirical evidence suggesting that such drastic architectural overhauls may not always be strictly necessary. We demonstrate that ordinary GNN baselines---specifically the standard Pointer Graph Network (PGN) \cite{velickovic2020pointer}---already possess the representational capacity required for extreme OOD scaling. The true bottleneck is often a mechanical breakdown in the optimization trajectory. We observe that successful OOD generalization in these tasks empirically mirrors a ``grokking'' phase transition \cite{power2022grokking}, relying on a fragile equilibrium between data-driven memorization and regularization-driven compression. By systematically optimizing the training pipeline of the SALSA-CLRS baseline without fundamentally altering the core architecture, we achieve 100x OOD scaling. Mechanistic ablations justifying these optimization requirements are provided in Appendix \ref{sec:ablations}.
+
+\section{Methodology}
+
+\subsection{Architectural Enhancements}
+To prevent hidden state decay over exponentially longer sequence rollouts, we integrate a Gated Recurrent Unit (GRU) to act as a persistent algorithmic memory bank. Furthermore, we inject latent Gaussian noise ($\sigma = 0.015$) directly into the hidden state embeddings during training. We hypothesize that this noise acts as a structural regularizer, forcing the network to learn a wide, self-correcting memory basin. This robustness is critical for OOD generalization, as it prevents microscopic prediction errors from compounding and derailing the network during extended 1600-step autonomous inference loops.
+
+\subsection{Optimization and Scaffolding}
+To combat exposure bias, instead of pure Teacher Forcing, we use an Autoregressive and Teacher Forcing (AR+TF) blend, applying a $0.4$ hint dropout rate to force autonomous execution recovery. 
+
+To drive the sudden leap in algorithmic alignment, we employ a strict optimization regimen. We utilize the AdamW optimizer with an aggressive weight decay ($\lambda=0.09$) to force the network to compress its initial memorization circuit into sparse, generalizable logic. Because discrete algorithmic routing is highly brittle to stochastic updates, we physically suppress gradient variance by training with a massive static batch size ($\mathcal{B}=2048$).
+
+\section{Main Results}
+
+Models were trained exclusively on Erd\H{o}s-R\'{e}nyi (ER) graphs restricted to $N \le 16$ nodes. Evaluations were conducted tracking both strict full-sequence \texttt{graph\_accuracy} and local \texttt{node\_accuracy} across topologies.
+
+As detailed in Table~\ref{results-table}, our optimized pipeline yields a categorical leap in OOD performance compared to the SALSA-CLRS baseline. Where the baseline PGN completely collapses on strict graph accuracy at $N=800$, our model maintains perfect $1.000$ accuracy on ER and Delaunay graphs. At the extreme 100x scale ($N=1600$), our model retains $80.0\%$ accuracy on structurally distinct Delaunay graphs (compared to the baseline's $0.0\%$). Watts-Strogatz (WS) performance drops earlier ($20.0\%$ at $N=800$); its ``small-world'' shortcuts heavily penalize fuzzy heuristics, serving as the ultimate limit test for strict logic.
+
+Crucially, this scaling robustness is equally evident in local routing stability. While the baseline's \texttt{node\_accuracy} severely degrades at $N=1600$ (falling to $40.8\%$ on Delaunay and $80.6\%$ on WS), our pipeline maintains $>99.1\%$ \texttt{node\_accuracy} across all topologies at the 100x scale. This demonstrates that even when a single discrete error breaks the strict graph match (as seen in the WS-1600 evaluation), the network's underlying algorithmic representation remains overwhelmingly stable.
+
+\begin{table}[H]
+  \caption{Comparison of Strict Graph Accuracy and Node Accuracy (\%) between the SALSA-CLRS Baseline PGN (with hints) and Our PGN Pipeline. Models were trained on ER graphs of $N \le 16$.}
+  \label{results-table}
+  \centering
+  \resizebox{\textwidth}{!}{%
+  \begin{tabular}{lcccccccccccc}
+    \toprule
+    & \multicolumn{4}{c}{\textbf{Erd\H{o}s-R\'{e}nyi (ER)}} & \multicolumn{4}{c}{\textbf{Delaunay}} & \multicolumn{4}{c}{\textbf{Watts-Strogatz (WS)}} \\
+    \cmidrule(r){2-5} \cmidrule(r){6-9} \cmidrule(r){10-13}
+    & \multicolumn{2}{c}{Graph Acc.} & \multicolumn{2}{c}{Node Acc.} & \multicolumn{2}{c}{Graph Acc.} & \multicolumn{2}{c}{Node Acc.} & \multicolumn{2}{c}{Graph Acc.} & \multicolumn{2}{c}{Node Acc.} \\
+    \cmidrule(r){2-3} \cmidrule(r){4-5} \cmidrule(r){6-7} \cmidrule(r){8-9} \cmidrule(r){10-11} \cmidrule(r){12-13}
+    \textbf{Nodes ($N$)} & Base & \textbf{Ours} & Base & \textbf{Ours} & Base & \textbf{Ours} & Base & \textbf{Ours} & Base & \textbf{Ours} & Base & \textbf{Ours} \\
+    \midrule
+    $N=16$ & 100.0 & \textbf{100.0} & 100.0 & \textbf{100.0} & 100.0 & \textbf{100.0} & 100.0 & \textbf{100.0} & 100.0 & \textbf{100.0} & 100.0 & \textbf{100.0} \\
+    $N=80$      & 88.1  & \textbf{100.0} & 99.8  & \textbf{100.0} & 26.2  & \textbf{100.0} & 97.5  & \textbf{100.0} & 14.2  & \textbf{100.0} & 96.1  & \textbf{100.0} \\
+    $N=800$    & 0.2   & \textbf{100.0} & 98.7  & \textbf{100.0} & 0.1   & \textbf{100.0} & 53.2  & \textbf{100.0} & 0.0   & \textbf{20.0}  & 76.4  & \textbf{99.8}  \\
+    $N=1600$  & 0.0   & \textbf{93.3}  & 98.5  & \textbf{99.9}  & 0.0   & \textbf{80.0}  & 40.8  & \textbf{99.9}  & 0.0   & \textbf{0.0}   & 80.6  & \textbf{99.1}  \\
+    \bottomrule
+  \end{tabular}%
+  }
+\end{table}
+
+To evaluate the stability of our heavily regularized pipeline, we conducted a multiseed evaluation across 10 independent training runs. Because the grokking phenomenon relies on escaping a local minimum to trigger a discrete phase transition, it is inherently sensitive to initialization. In our evaluation, 5 out of the 10 runs successfully grokked. This phase transition is visually confirmed in Figure~\ref{fig:multiseed_combined} (top), where the successful runs exhibit a sudden, sharp increase in the network's weight norm, escaping the penalty phase to build high-capacity representations. Concurrently, as demonstrated in Figure~\ref{fig:multiseed_combined} (bottom), these 5 successful runs align precisely with a spike to near-perfect validation node accuracy on the highly demanding Watts-Strogatz (WS-800) topology. This confirms that when the optimization trajectory successfully navigates the phase transition, the resulting algorithmic alignment is both robust and reproducible.
+
+\subsection{Grokking Dynamics and Margin Maximization}
+
+While standard grokking often exhibits a regularization-driven \textit{drop} in weight norm \cite{power2022grokking}, our pipeline produces an uncharacteristic spike. We hypothesize this is driven by margin maximization within the discrete routing context. Pointer Graph Networks must approximate a hard argmax using a continuous softmax. During the memorization phase, the $L_2$ penalty restricts capacity. However, upon discovering a perfectly generalizing algorithmic circuit, the features become linearly separable. The cross-entropy gradient---pushing to maximize the margin for the correct pointer---overcomes the quadratic weight penalty. The model rapidly scales its weights to confidently simulate discrete logic, driving the weight norm spike.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.75\textwidth]{multiseed_weight_norm.png}
+  
+  \vspace{0.3cm}
+  
+  \includegraphics[width=0.75\textwidth]{multiseed_ws_node.png}
+  \caption{Multiseed evaluation across 10 independent training runs. \textbf{Top:} Training weight norm ($||w||$) progression, demonstrating 5 of the 10 runs successfully transitioning to a high-capacity state. \textbf{Bottom:} Validation Node Accuracy on the WS-800 topology for the same 10 seeds, showing near-perfect local routing stability precisely aligning with the 5 runs that grokked.}
+  \label{fig:multiseed_combined}
+\end{figure}
+
+\section{Conclusion}
+Our empirical results demonstrate that ordinary GNNs already possess the representational capacity necessary for extreme algorithmic generalization. The primary bottleneck lies in the optimization trajectory. Successful algorithmic learning benefits greatly from deviating from standard deep learning heuristics: our models relied on an ultra-low-variance optimization environment, hidden state noise, and dense execution trace scaffolding to successfully construct and compress strict algorithmic logic. By mechanically aligning the optimization physics, we can unlock latent algorithmic capabilities in standard graph architectures.
+
+\clearpage
+\begin{thebibliography}{9}
+
+\bibitem{velickovic2022clrs}
+Veli\v{c}kovi\'{c}, P., et al. (2022). 
+\textit{The CLRS Algorithmic Reasoning Benchmark}. 
+In Proceedings of the 39th International Conference on Machine Learning (ICML).
+
+\bibitem{minder2023salsa}
+Minder, J., Gr\"{o}tschla, F., Mathys, J., \& Wattenhofer, R. (2023). 
+\textit{SALSA-CLRS: A Sparse and Scalable Benchmark for Algorithmic Reasoning}. 
+In 2nd Learning on Graphs Conference (LoG).
+
+\bibitem{velickovic2020pointer}
+Veli\v{c}kovi\'{c}, P., Buesing, L., Overlan, M., Pascanu, R., Vinyals, O., \& Blundell, C. (2020). 
+\textit{Pointer Graph Networks}. 
+Advances in Neural Information Processing Systems (NeurIPS).
+
+\bibitem{floydnet}
+Yu, J., Zeng, M., \& Ye, Q. (2026). 
+\textit{FloydNet: A Learning Paradigm for Global Relational Reasoning}. 
+arXiv preprint arXiv:2601.19094.
+
+\bibitem{power2022grokking}
+Power, A., Burda, Y., Edwards, H., Babuschkin, I., \& Misra, V. (2022). 
+\textit{Grokking: Generalization Beyond Overfitting on Small Algorithmic Datasets}. 
+arXiv preprint arXiv:2201.02177.
+
+\bibitem{rodionov2025discrete}
+Rodionov, G., \& Prokhorenkova, L. (2025). 
+\textit{Discrete Neural Algorithmic Reasoning}. 
+In International Conference on Machine Learning (ICML) (pp. 51851-51865). PMLR.
+
+\end{thebibliography}
+
+\clearpage
+\appendix
+
+\section{Mechanistic Ablations}
+\label{sec:ablations}
+
+We conducted several ablations against our optimized baseline to isolate the physical drivers of algorithmic phase transitions.
+
+\subsection{The Role of Optimization Noise ($\mathcal{B}=8$ vs $\mathcal{B}=2048$)}
+
+As illustrated in Figure \ref{fig:weight_norm}, high stochastic optimization noise actively undermines algorithmic alignment. In our $\mathcal{B}=8$ ablation (\texttt{ablation-scheduler-smallbs}), the model's weight norm prematurely plateaus ($||w|| \approx 75$), suggesting a physical failure to construct the high-norm representations ($||w|| \approx 200$ in our \texttt{best-model} baseline) that characterize successful alignment in this regime. We hypothesize that this lower-capacity state was insufficient to withstand the aggressive $0.09$ weight decay, preventing the model from transitioning from local heuristics to global logic.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[trim={5.5cm 9.5cm 5.5cm 9.5cm}, clip, width=0.8\textwidth]{weight-norm-ablation.pdf}
+  \caption{Training weight norm ($||w||$) progression. The low-variance baseline (\texttt{best-model}) successfully escapes the penalty phase to build a high-capacity circuit, whereas the small batch size (\texttt{ablation-scheduler-smallbs}) gets trapped at a lower norm.}
+  \label{fig:weight_norm}
+\end{figure}
+
+\subsection{The Illusion of Learning (No Hints / No AR+TF)}
+
+Removing step-by-step hints and AR+TF scaffolding (falling back to end-to-end training) induces a deceptive failure mode. We observe that while the end-to-end ablation (\texttt{ablation-nohints-noartf}) can achieve high validation node accuracy on Delaunay topologies (Figure \ref{fig:node_acc}), the metric is highly unstable, wildly oscillating between $0.80$ and $1.0$ during training. 
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[trim={5.5cm 9.5cm 5.5cm 9.5cm}, clip, width=0.8\textwidth]{node_accuracy_de800-ablation.pdf}
+  \caption{Validation Node Accuracy (Delaunay-800). The end-to-end ablation (\texttt{ablation-nohints-noartf}) exhibits thrashing compared to the stable \texttt{best-model}.}
+  \label{fig:node_acc}
+\end{figure}
+
+Despite these localized spikes in node accuracy, the strict graph accuracy (Figure \ref{fig:graph_acc}) consistently flatlines at $0.0$. This discrepancy visually confirms that dense, step-by-step gradients from execution traces are empirically required to provide the structural scaffolding necessary for the model to align with the global algorithmic logic, rather than just overfitting to unstable local heuristics.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[trim={5.5cm 9.5cm 5.5cm 9.5cm}, clip, width=0.8\textwidth]{graph_accuracy_de800-ablation.pdf}
+  \caption{Validation Graph Accuracy (Delaunay-800). Without step-by-step hints, the model completely fails to capture the strict structural logic of the BFS algorithm, flatlining at zero.}
+  \label{fig:graph_acc}
+\end{figure}
+
+\subsection{Memory and Regularization Limitations}
+\begin{itemize}
+    \item \textbf{No GRU:} Fails catastrophically on Delaunay-800 graphs. Delaunay triangulations feature significantly larger graph diameters; without persistent GRU memory, the standard message-passing ``visited'' state likely dilutes and decays over long BFS depths.
+    \item \textbf{No Weight Decay:} Removing the $L_2$ penalty traps the model in a stable local minimum of perfect training memorization, disabling the compression required for OOD graph accuracy.
+    \item \textbf{No Hidden Noise:} The absence of hidden state noise degrades convergence speed and reduces strict graph accuracy on Watts-Strogatz topologies. Noise physically forces the model to learn to self-correct on long BFS trajectories, preventing microscopic errors from compounding over thousands of rollout steps.
+    \item \textbf{Hidden Loss Trap:} Enforcing a direct $L_2$ loss on the hidden state creates a destructive information bottleneck, crippling the model's ability to store auxiliary spatial algorithmic memory (e.g., structural graph awareness), causing failure even on 80-node graphs.
+\end{itemize}
+
+\end{document}

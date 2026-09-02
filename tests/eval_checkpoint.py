@@ -110,6 +110,12 @@ def main():
         help="Override eval precision. Default: cfg.TRAIN.PRECISION from the checkpoint "
              "(16-mixed for the paper's runs)."
     )
+    parser.add_argument("--matmul-precision", type=str, default="medium",
+                        choices=["highest","high","medium"],
+                        help="torch.set_float32_matmul_precision. 'medium' permits bf16 "
+                             "tensor-core matmuls even when --precision is 32, so it is NOT "
+                             "true fp32. Kept as the default to preserve historical behaviour; "
+                             "pass 'highest' for genuine fp32 evaluation.")
     parser.add_argument("--max-cores", type=int, default=-1,
                         help="Cores for graph generation. -1 (default) is serial; set to the "
                              "instance's core count to speed up large high-sample bins.")
@@ -125,7 +131,8 @@ def main():
     logger.add(sys.stderr, level="INFO")
 
     # Ensure precision is set right
-    torch.set_float32_matmul_precision('medium')
+    torch.set_float32_matmul_precision(args.matmul_precision)
+    logger.info(f"float32 matmul precision: {args.matmul_precision}")
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     logger.info(f"Using device: {device}")
 

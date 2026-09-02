@@ -210,6 +210,11 @@ def main():
     parser.add_argument("--num-samples", type=int, default=15, help="Number of samples per path size")
     parser.add_argument("--batch-size", type=int, default=1, help="Inference batch size")
     parser.add_argument("--device", type=str, default="auto", help="cpu / cuda / auto")
+    parser.add_argument("--matmul-precision", type=str, default="medium",
+                        choices=["highest","high","medium"],
+                        help="torch.set_float32_matmul_precision. 'medium' permits bf16 "
+                             "tensor-core matmuls even when --precision is 32, so it is NOT "
+                             "true fp32. Kept as the default to preserve historical behaviour.")
     parser.add_argument(
         "--precision", type=str, default=None,
         choices=["32", "16-mixed", "bf16-mixed"],
@@ -230,7 +235,8 @@ def main():
     logger.add(sys.stderr, level="INFO")
 
     # --- Config & device ---
-    torch.set_float32_matmul_precision('medium')
+    torch.set_float32_matmul_precision(args.matmul_precision)
+    print(f"float32 matmul precision: {args.matmul_precision}")
     if args.device == "auto":
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     else:

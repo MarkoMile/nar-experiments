@@ -1,0 +1,73 @@
+\relax 
+\providecommand\hyper@newdestlabel[2]{}
+\providecommand\HyperFirstAtBeginDocument{\AtBeginDocument}
+\HyperFirstAtBeginDocument{\ifx\hyper@anchor\@undefined
+\global\let\oldnewlabel\newlabel
+\gdef\newlabel#1#2{\newlabelxx{#1}#2}
+\gdef\newlabelxx#1#2#3#4#5#6{\oldnewlabel{#1}{{#2}{#3}}}
+\AtEndDocument{\ifx\hyper@anchor\@undefined
+\let\newlabel\oldnewlabel
+\fi}
+\fi}
+\global\let\hyper@last\relax 
+\gdef\HyperFirstAtBeginDocument#1{#1}
+\providecommand\HyField@AuxAddToFields[1]{}
+\providecommand\HyField@AuxAddToCoFields[2]{}
+\citation{velickovic2020pointer}
+\citation{velickovic2022clrs}
+\citation{minder2023salsa}
+\citation{floydnet}
+\citation{rodionov2025discrete}
+\citation{velickovic2020pointer}
+\citation{power2022grokking}
+\@writefile{toc}{\contentsline {section}{\numberline {1}Introduction}{1}{section.1}\protected@file@percent }
+\@writefile{brf}{\backcite{velickovic2020pointer}{{1}{1}{section.1}}}
+\@writefile{brf}{\backcite{velickovic2022clrs}{{1}{1}{section.1}}}
+\@writefile{brf}{\backcite{minder2023salsa}{{1}{1}{section.1}}}
+\@writefile{brf}{\backcite{floydnet}{{1}{1}{section.1}}}
+\@writefile{brf}{\backcite{rodionov2025discrete}{{1}{1}{section.1}}}
+\@writefile{brf}{\backcite{velickovic2020pointer}{{1}{1}{section.1}}}
+\@writefile{brf}{\backcite{power2022grokking}{{1}{1}{section.1}}}
+\@writefile{toc}{\contentsline {section}{\numberline {2}Methodology}{2}{section.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.1}Architectural Enhancements}{2}{subsection.2.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.2}Optimization and Scaffolding}{2}{subsection.2.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {3}Main Results}{2}{section.3}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {1}{\ignorespaces Comparison of Strict Graph Accuracy and Node Accuracy (\%) between the SALSA-CLRS Baseline PGN (with hints) and Our PGN Pipeline. Models were trained on ER graphs of $N \le 16$. \textbf  {Ours}: best checkpoint, evaluated at full fp32 precision (fp32 matmuls), 200 graphs per bin; the spread across grokked seeds is given in Appendix\nobreakspace  {}\ref {sec:perseed}. \textbf  {Base}: as reported by SALSA-CLRS.\relax }}{2}{table.caption.2}\protected@file@percent }
+\providecommand*\caption@xref[2]{\@setref\relax\@undefined{#1}}
+\newlabel{results-table}{{1}{2}{Comparison of Strict Graph Accuracy and Node Accuracy (\%) between the SALSA-CLRS Baseline PGN (with hints) and Our PGN Pipeline. Models were trained on ER graphs of $N \le 16$. \textbf {Ours}: best checkpoint, evaluated at full fp32 precision (fp32 matmuls), 200 graphs per bin; the spread across grokked seeds is given in Appendix~\ref {sec:perseed}. \textbf {Base}: as reported by SALSA-CLRS.\relax }{table.caption.2}{}}
+\citation{power2022grokking}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.1}Grokking Dynamics and Margin Maximization}{3}{subsection.3.1}\protected@file@percent }
+\@writefile{brf}{\backcite{power2022grokking}{{3}{3.1}{subsection.3.1}}}
+\@writefile{toc}{\contentsline {section}{\numberline {4}Conclusion}{3}{section.4}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces Multiseed evaluation across 10 independent training runs. \textbf  {Top:} Training weight norm ($||w||$) progression, demonstrating 5 of the 10 runs successfully transitioning to a high-capacity state. \textbf  {Bottom:} Validation Node Accuracy on the WS-800 topology for the same 10 seeds, showing near-perfect local routing stability precisely aligning with the 5 runs that grokked.\relax }}{4}{figure.caption.3}\protected@file@percent }
+\newlabel{fig:multiseed_combined}{{1}{4}{Multiseed evaluation across 10 independent training runs. \textbf {Top:} Training weight norm ($||w||$) progression, demonstrating 5 of the 10 runs successfully transitioning to a high-capacity state. \textbf {Bottom:} Validation Node Accuracy on the WS-800 topology for the same 10 seeds, showing near-perfect local routing stability precisely aligning with the 5 runs that grokked.\relax }{figure.caption.3}{}}
+\bibcite{velickovic2022clrs}{1}
+\bibcite{minder2023salsa}{2}
+\bibcite{velickovic2020pointer}{3}
+\bibcite{floydnet}{4}
+\bibcite{power2022grokking}{5}
+\bibcite{rodionov2025discrete}{6}
+\@writefile{toc}{\contentsline {section}{\numberline {A}Mechanistic Ablations}{6}{appendix.A}\protected@file@percent }
+\newlabel{sec:ablations}{{A}{6}{Mechanistic Ablations}{appendix.A}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {A.1}The Role of Optimization Noise ($\mathcal  {B}=8$ vs $\mathcal  {B}=2048$)}{6}{subsection.A.1}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces Training weight norm ($||w||$) progression. The low-variance baseline (\texttt  {best-model}) successfully escapes the penalty phase to build a high-capacity circuit, whereas the small batch size (\texttt  {ablation-scheduler-smallbs}) gets trapped at a lower norm.\relax }}{6}{figure.caption.5}\protected@file@percent }
+\newlabel{fig:weight_norm}{{2}{6}{Training weight norm ($||w||$) progression. The low-variance baseline (\texttt {best-model}) successfully escapes the penalty phase to build a high-capacity circuit, whereas the small batch size (\texttt {ablation-scheduler-smallbs}) gets trapped at a lower norm.\relax }{figure.caption.5}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {A.2}The Illusion of Learning (No Hints / No AR+TF)}{6}{subsection.A.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {A.3}Memory and Regularization Limitations}{6}{subsection.A.3}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {3}{\ignorespaces Validation Node Accuracy (Delaunay-800). The end-to-end ablation (\texttt  {ablation-nohints-noartf}) exhibits thrashing compared to the stable \texttt  {best-model}.\relax }}{7}{figure.caption.6}\protected@file@percent }
+\newlabel{fig:node_acc}{{3}{7}{Validation Node Accuracy (Delaunay-800). The end-to-end ablation (\texttt {ablation-nohints-noartf}) exhibits thrashing compared to the stable \texttt {best-model}.\relax }{figure.caption.6}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {4}{\ignorespaces Validation Graph Accuracy (Delaunay-800). Without step-by-step hints, the model completely fails to capture the strict structural logic of the BFS algorithm, flatlining at zero.\relax }}{7}{figure.caption.7}\protected@file@percent }
+\newlabel{fig:graph_acc}{{4}{7}{Validation Graph Accuracy (Delaunay-800). Without step-by-step hints, the model completely fails to capture the strict structural logic of the BFS algorithm, flatlining at zero.\relax }{figure.caption.7}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {B}Per-Seed Results and Evaluation Precision}{8}{appendix.B}\protected@file@percent }
+\newlabel{sec:perseed}{{B}{8}{Per-Seed Results and Evaluation Precision}{appendix.B}{}}
+\@writefile{toc}{\contentsline {paragraph}{Evaluation precision.}{8}{section*.8}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {2}{\ignorespaces Strict graph accuracy of the best checkpoint under three effective evaluation precisions (same frozen weights, same 200 graphs per bin).\relax }}{8}{table.caption.9}\protected@file@percent }
+\newlabel{precision-ladder}{{2}{8}{Strict graph accuracy of the best checkpoint under three effective evaluation precisions (same frozen weights, same 200 graphs per bin).\relax }{table.caption.9}{}}
+\@writefile{toc}{\contentsline {paragraph}{Per-seed results.}{8}{section*.10}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {3}{\ignorespaces Per-seed strict graph accuracy (\%) at full fp32, 200 graphs per bin.\relax }}{8}{table.caption.11}\protected@file@percent }
+\newlabel{per-seed-table}{{3}{8}{Per-seed strict graph accuracy (\%) at full fp32, 200 graphs per bin.\relax }{table.caption.11}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {C}Path-Graph Evaluation: Long Rollouts}{8}{appendix.C}\protected@file@percent }
+\newlabel{sec:pathgraphs}{{C}{8}{Path-Graph Evaluation: Long Rollouts}{appendix.C}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {4}{\ignorespaces Strict graph accuracy on path graphs at full fp32.\relax }}{9}{table.caption.12}\protected@file@percent }
+\newlabel{path-table}{{4}{9}{Strict graph accuracy on path graphs at full fp32.\relax }{table.caption.12}{}}
+\gdef \@abspage@last{9}

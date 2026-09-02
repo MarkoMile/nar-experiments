@@ -89,15 +89,20 @@ def main():
                 row[k] = v
         summary_rows.append(row)
 
-        # Only ask for keys this run actually logged, else wandb returns NaN columns.
-        available = [k for k in HISTORY_KEYS if k in run.summary.keys()
-                     or k == "trainer/global_step"]
+        # Ask for the curve keys directly; a metric logged only during training
+        # (e.g. train/weight_norm) does not appear in run.summary, so filtering
+        # on summary keys silently returns nothing.
+        hist = None
         try:
-            hist = run.history(keys=available or None, samples=args.history_samples,
-                               pandas=True)
+            hist = run.history(keys=HISTORY_KEYS, samples=args.history_samples, pandas=True)
         except Exception as e:  # noqa: BLE001 - one bad run must not lose the rest
-            logger.warning(f"    history fetch failed: {e}")
-            continue
+            logger.warning(f"    keyed history failed ({e}); falling back to full history")
+        if hist is None or len(hist) == 0:
+            try:
+                hist = run.history(samples=args.history_samples, pandas=True)
+            except Exception as e:  # noqa: BLE001
+                logger.warning(f"    history fetch failed: {e}")
+                continue
         if hist is None or len(hist) == 0:
             logger.warning("    no history rows")
             continue
